@@ -138,17 +138,27 @@ if ($Bundled) {
     # ---- ① 捆绑离线安装 -----------------------------------------------------
     New-Item -ItemType Directory -Path $AppDir -Force | Out-Null
 
-    $dstWez = Join-Path $AppDir 'WezTerm'
-    if (Test-Path $dstWez) {
-        if ($Force) { Remove-Item $dstWez -Recurse -Force }
-        else { Write-Warn "$dstWez 已存在，将合并/覆盖同名文件" }
-    }
-    Write-Log "复制 WezTerm 便携版 -> $dstWez"
-    Copy-Item (Join-Path $Root 'WezTerm') $dstWez -Recurse -Force
-    Add-ToUserPath $dstWez
-
+    $dstWez  = Join-Path $AppDir 'WezTerm'
     $dstStar = Join-Path $AppDir 'starship.exe'
-    Copy-Item (Join-Path $Root 'starship.exe') $dstStar -Force
+
+    # NSIS 安装器场景：install.ps1 已在最终安装目录内执行（Root == AppDir），
+    # 程序已就地就位 → 跳过程序复制（避免 Copy-Item 同路径自复制报错），只注册 PATH 与配置。
+    $rootReal = (Resolve-Path $Root -ErrorAction SilentlyContinue).Path
+    $appReal  = (Resolve-Path $AppDir -ErrorAction SilentlyContinue).Path
+    if ($rootReal -and $appReal -and $rootReal -eq $appReal) {
+        Write-Log "已在安装目录内运行（NSIS 场景），跳过程序复制，仅注册 PATH 与配置"
+    } else {
+        if (Test-Path $dstWez) {
+            if ($Force) { Remove-Item $dstWez -Recurse -Force }
+            else { Write-Warn "$dstWez 已存在，将合并/覆盖同名文件" }
+        }
+        Write-Log "复制 WezTerm 便携版 -> $dstWez"
+        Copy-Item (Join-Path $Root 'WezTerm') $dstWez -Recurse -Force
+
+        Write-Log "复制 starship.exe -> $dstStar"
+        Copy-Item (Join-Path $Root 'starship.exe') $dstStar -Force
+    }
+    Add-ToUserPath (Join-Path $AppDir 'WezTerm')
     Add-ToUserPath $AppDir
 
     Write-Log "已安装: $dstWez"

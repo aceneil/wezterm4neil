@@ -1,9 +1,9 @@
-WezTerm4Neil (Windows .zip)
-==========================
+WezTerm4Neil (Windows EXE 安装器)
+================================
 
-本 zip 由 GitHub Actions 每周一自动从上游官方 Release 拉取「当时最新」产物组装，
+本安装器由 GitHub Actions 每周一自动从上游官方 Release 拉取「当时最新」产物组装，
 内含开箱即用的便携版 WezTerm + Starship + 配置文件（离线可用），
-并附带一键安装脚本 install.ps1。
+安装时自动运行一键脚本 install.ps1（注册用户 PATH + 写入 ~/.config）。
 
 内容物
 ------
@@ -13,7 +13,7 @@ WezTerm4Neil (Windows .zip)
   wezterm.lua        WezTerm 配置（自动读取 ~/.ssh/config 生成 SSH 域）
   config.fish        fish 配置（别名 + Starship）——供 WSL 内 fish 使用
   starship.toml      Starship 提示符模板
-  VERSIONS.txt       本 zip 捆绑各组件的版本 / 来源 URL / 构建日期 / 仓库 commit
+  VERSIONS.txt       本安装器捆绑各组件的版本 / 来源 URL / 构建日期 / 仓库 commit
   licenses/          上游组件许可证（MIT / ISC）
 
 快速开始（离线，推荐）

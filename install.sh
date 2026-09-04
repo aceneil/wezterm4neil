@@ -44,6 +44,17 @@ for arg in "$@"; do
   esac
 done
 
+# ---- 环境检测 ---------------------------------------------------------------
+if [[ "$(id -u)" -eq 0 ]]; then
+  echo "⚠️ 警告: 你正以 root 运行本脚本，配置将写入 /root/.config 而非普通用户目录。"
+  echo "   .deb 安装后请用你的普通用户执行: bash /etc/wezterm4neil/install.sh"
+  echo "   （仅当确为 root 环境——容器/无普通用户——可忽略本警告）"
+fi
+if [[ -z "${HOME:-}" || ! -d "${HOME:-}" ]]; then
+  echo "错误: 无法确定 HOME（当前值 '${HOME:-}'），请设置 HOME 后重试。" >&2
+  exit 2
+fi
+
 # 本脚本所在目录（仓库根 或 .deb 安装到的 /etc/wezterm4neil）
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # 配置源目录：优先脚本同级目录，否则取 skel/（.deb 布局）

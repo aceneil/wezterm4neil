@@ -16,9 +16,10 @@
 #                    生成 VERSIONS.txt（含本仓库 commit sha），上传 artifact
 #   preview         : VHS 渲染 assets/preview.gif，有变化才自动 commit（防空提交）
 #   build-linux     : 用上游产物 + packaging/linux/build-deb.sh 组装 .deb
+#   smoke-test-linux: 解包 .deb 跑捆绑二进制 + install.sh 落配置（CI 自证可用）
 #   build-macos     : 组装 WezTerm.app + starship + fish pkg + 配置 → create-dmg
-#   build-windows   : 组装便携 WezTerm + starship.exe + 配置 + install.ps1 → zip
-#   release         : 汇总产物 + SHA256SUMS → GitHub Release（幂等）
+#   build-windows   : 组装便携 WezTerm + starship.exe + 配置 + install.ps1 → NSIS EXE 安装器
+#   release         : 发布 deb / dmg / exe → GitHub Release（幂等；Source code 由 GitHub 自动附赠）
 #
 # 注: preview 的 gif commit 会再次触发 push 运行；为防空转，fetch/build/release
 #     跳过 message 前缀为 "docs: update terminal preview GIF" 的 push。
@@ -43,6 +44,7 @@ jobs:
   fetch-upstreams:
     name: Fetch upstream releases
     runs-on: ubuntu-latest
+    if: "${{ !(github.event_name == 'push' && github.event.head_commit != null && startsWith(github.event.head_commit.message, 'docs: update terminal preview GIF')) }}"
     outputs:
       version: ${{ steps.ver.outputs.version }}
     env:
@@ -281,6 +283,40 @@ jobs:
           if-no-files-found: error
 
   # ---------------------------------------------------------------------------
+  # 冒烟测试（Linux）：CI 自证捆绑二进制可执行 + install.sh 能落配置
+  # ---------------------------------------------------------------------------
+  smoke-test-linux:
+    name: Smoke test Linux .deb
+    runs-on: ubuntu-latest
+    needs: build-linux
+    if: "${{ !(github.event_name == 'push' && github.event.head_commit != null && startsWith(github.event.head_commit.message, 'docs: update terminal preview GIF')) }}"
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: linux-deb
+          path: deb
+
+      - name: Extract & run bundled binaries + deploy configs
+        run: |
+          set -euo pipefail
+          DEB="$(ls deb/wezterm4neil_*.deb)"
+          echo "== smoke test: $DEB =="
+          rm -rf payload && mkdir -p payload
+          dpkg-deb -x "$DEB" payload
+          echo "---- bundled versions ----"
+          payload/usr/bin/fish --version
+          payload/usr/bin/starship --version
+          payload/usr/bin/wezterm --version
+          echo "---- deploy configs to fake HOME ----"
+          export HOME="$RUNNER_TEMP/fakehome"
+          mkdir -p "$HOME"
+          bash payload/etc/wezterm4neil/install.sh --copy
+          test -f "$HOME/.config/wezterm/wezterm.lua"   && echo "  ✔ wezterm.lua"
+          test -f "$HOME/.config/fish/config.fish"      && echo "  ✔ config.fish"
+          test -f "$HOME/.config/starship.toml"         && echo "  ✔ starship.toml"
+          echo "SMOKE TEST PASS ✅"
+
+  # ---------------------------------------------------------------------------
   # macOS: 组装 DMG（WezTerm.app + starship + fish pkg + install.command + 配置）
   # ---------------------------------------------------------------------------
   build-macos:
@@ -353,10 +389,10 @@ jobs:
           if-no-files-found: error
 
   # ---------------------------------------------------------------------------
-  # Windows: 便携 WezTerm + starship.exe + install.ps1 + 配置 → zip
+  # Windows: 便携 WezTerm + starship.exe + install.ps1 + 配置 → NSIS EXE 安装器
   # ---------------------------------------------------------------------------
   build-windows:
-    name: Build Windows ZIP + PS1
+    name: Build Windows EXE installer (NSIS)
     runs-on: windows-latest
     needs: fetch-upstreams
     if: "${{ !(github.event_name == 'push' && github.event.head_commit != null && startsWith(github.event.head_commit.message, 'docs: update terminal preview GIF')) }}"
@@ -367,7 +403,7 @@ jobs:
           name: upstream
           path: ./dl
 
-      - name: Assemble zip & standalone ps1
+      - name: Assemble offline bundle payload
         env:
           VER: ${{ needs.fetch-upstreams.outputs.version }}
         shell: pwsh
@@ -394,23 +430,36 @@ jobs:
           Copy-Item packaging/windows/README.txt zst\README.txt
           Copy-Item dl/VERSIONS.txt zst\VERSIONS.txt
           Copy-Item dl/licenses zst\licenses -Recurse
+          Write-Host "payload ready:"; Get-ChildItem zst | Select-Object Name, Length
 
-          # 打 zip
-          $zipName = "wezterm4neil-$env:VER-windows"
-          Compress-Archive -Path "zst\*" -DestinationPath "$zipName.zip" -Force
-          Copy-Item install.ps1 "$zipName-install.ps1"
-          Get-ChildItem -Filter "wezterm4neil-*" | Select-Object Name, Length
+      - name: Install NSIS
+        shell: pwsh
+        run: |
+          choco install nsis -y --no-progress
+          $nsis = "${env:ProgramFiles(x86)}\NSIS\makensis.exe"
+          if (-not (Test-Path $nsis)) { throw "makensis 未找到: $nsis" }
+          Write-Host "makensis: $nsis"
+
+      - name: Compile EXE installer (NSIS)
+        shell: pwsh
+        env:
+          VER: ${{ needs.fetch-upstreams.outputs.version }}
+        run: |
+          $nsis = "${env:ProgramFiles(x86)}\NSIS\makensis.exe"
+          $src  = (Join-Path $pwd 'zst')
+          $out  = "wezterm4neil-$env:VER-windows.exe"
+          & $nsis /DSOURCE_DIR="$src" /DAPP_VERSION="$env:VER" /DOUT_FILE="$out" packaging\windows\installer.nsi
+          if ($LASTEXITCODE -ne 0) { throw "makensis 失败 exit=$LASTEXITCODE" }
+          Get-ChildItem -Filter "wezterm4neil-*-windows.exe" | Select-Object Name, Length
 
       - uses: actions/upload-artifact@v4
         with:
           name: windows-dist
-          path: |
-            wezterm4neil-*-windows.zip
-            wezterm4neil-*-windows-install.ps1
+          path: wezterm4neil-*-windows.exe
           if-no-files-found: error
 
   # ---------------------------------------------------------------------------
-  # Release: 汇总三平台产物 + VERSIONS.txt + SHA256SUMS → GitHub Release
+  # Release: 发布 deb / dmg / exe 到 GitHub Release（Source code 源码包由 GitHub 自动附赠）
   # ---------------------------------------------------------------------------
   release:
     name: Publish GitHub Release
@@ -438,12 +487,6 @@ jobs:
           name: windows-dist
           path: dist
 
-      - name: Download version manifest
-        uses: actions/download-artifact@v4
-        with:
-          name: versions-txt
-          path: dist
-
       - name: Create GitHub Release
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -451,25 +494,28 @@ jobs:
         run: |
           set -euo pipefail
           cd dist
-          # 展平各 artifact 子目录（linux-deb/ macos-dmg/ windows-dist/ versions-txt/）
+          # 展平各 artifact 子目录（linux-deb/ macos-dmg/ windows-dist/）
           find . -mindepth 2 -type f -exec mv -n {} . \;
           ls -la
           TAG="v${VER}"
-          sha256sum wezterm4neil-* > SHA256SUMS.txt
-          ls -la
-          # 幂等：同一天重复触发时不重建已存在的 Release，仅补传产物
+          # 幂等：同一天重复触发时保留既有 Release，先清理旧版残留资产再补传。
+          # 保留规则：仅 *.deb / *.dmg / *.exe 与 GitHub 自动生成的 "Source code (zip|tar.gz)"。
           if gh release view "$TAG" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
-            echo "Release $TAG 已存在，仅补传产物"
-            gh release upload "$TAG" --repo "$GITHUB_REPOSITORY" --clobber \
-              wezterm4neil-* VERSIONS.txt SHA256SUMS.txt
+            echo "Release $TAG 已存在：清理旧资产（仅保留 deb/dmg/exe 与 Source code）"
+            for old in $(gh release view "$TAG" --repo "$GITHUB_REPOSITORY" --json assets -q '.assets[].name' | grep -Ev '\.(deb|dmg|exe)$|^Source code' || true); do
+              echo "  删除旧资产: $old"
+              gh release delete-asset "$TAG" --repo "$GITHUB_REPOSITORY" "$old" --yes || true
+            done
+            gh release upload "$TAG" --repo "$GITHUB_REPOSITORY" --clobber wezterm4neil*
           else
             gh release create "$TAG" \
               --repo "$GITHUB_REPOSITORY" \
               --title "WezTerm4Neil ${VER}" \
-              --notes "随源更新全家桶：WezTerm + Fish + Starship（从上游官方 Release 拉取当时最新）。
-              - macOS : 标准 DMG（WezTerm.app + starship + fish + 一键 install.command）
-              - Linux : 标准 DEB（捆绑三软件二进制，安装后 bash /etc/wezterm4neil/install.sh 激活配置）
-              - Windows: 便携 ZIP + 一键 install.ps1（离线模式；fish 走 WSL 说明见 README）
-              每个安装包内附 VERSIONS.txt（组件版本/来源/commit）。SHA256SUMS.txt 为全部产物校验值。" \
-              wezterm4neil-* VERSIONS.txt SHA256SUMS.txt
+              --notes "随源更新全家桶：WezTerm + Fish + Starship（每次构建从上游官方 Release 拉取当时最新）。
+              - macOS : 标准 DMG 安装包
+              - Linux : 标准 DEB 安装包（捆绑三软件二进制，安装后执行 bash /etc/wezterm4neil/install.sh 激活配置）
+              - Windows: 标准 EXE 安装器（NSIS，捆绑便携版，静默参数 /S）
+              GitHub 会自动附带 Source code (zip) 与 Source code (tar.gz)。
+              每个安装包内均含 VERSIONS.txt（组件版本/来源/commit）。" \
+              wezterm4neil*
           fi

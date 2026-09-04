@@ -22,7 +22,7 @@
 - 🚀 **Starship 提示符**：自定义 format 模板，跨 shell / 跨平台一致体验。
 - 🔁 **随源每周构建**：每周一 00:00 UTC（北京时间 08:00）+ 手动触发 + push 到 main，
   三种触发都会从上游拉取当时最新产物重新打包。
-- 📦 **开箱即用安装包**：Linux 标准 `.deb`、macOS 标准 `.dmg`、Windows 便携 `.zip`，
+- 📦 **开箱即用安装包**：Linux 标准 `.deb`、macOS 标准 `.dmg`、Windows 标准 `.exe` 安装器，
   **软件本体（WezTerm / Fish / Starship）已捆绑在包内**，离线可装。
 - 📋 **VERSIONS.txt**：每个安装包内置捆绑组件的版本 / 来源 URL / 构建日期 / 本仓库 commit。
 - ⚡ **一键部署**：`install.sh` / `install.ps1` 支持**软链接或拷贝**到 `~/.config`，
@@ -34,7 +34,7 @@
 | :--- | :--- | :--- |
 | Linux | `wezterm4neil_<版本>_amd64.deb` | 捆绑上游官方 **wezterm**（Ubuntu22.04 deb）、**fish**（官方预编译单文件，取不到才回退发行版 apt deb）、**starship**（官方二进制）→ 解包到 `/usr/bin` 与 `/usr/share`；配置模板装到 `/etc/wezterm4neil/skel/`，`VERSIONS.txt` 与 `install.sh` 装到 `/etc/wezterm4neil/`；postinst 打印激活指引。`sudo apt install ./xxx.deb` 后执行 `bash /etc/wezterm4neil/install.sh` 即把配置激活到 `~/.config` |
 | macOS | `wezterm4neil-<版本>-macos.dmg` | DMG 内含官方 **WezTerm.app**（Universal）、**starship** darwin 二进制、官方 **fish-<版本>.pkg**（该版本没出 pkg 就自动改用 brew）、配置文件与 `install.command`。双击 `install.command` 按提示输入管理员密码 → WezTerm.app 装入 `/Applications`、starship 装入 `/usr/local/bin`、fish 缺失时自动装、配置落到 `~/.config` |
-| Windows | `wezterm4neil-<版本>-windows.zip`（另附同名 `-install.ps1`） | zip 内含官方便携 **WezTerm**、**starship.exe**、`install.ps1` 与全部配置。解压后运行 `install.ps1`：离线模式复制到 `%LOCALAPPDATA%\Programs\wezterm4neil\`、注册用户 PATH、配置写入 `~/.config`；脱离 zip 单独运行则回退 `winget` 安装 wezterm/starship |
+| Windows | `wezterm4neil-<版本>-windows.exe` | NSIS 安装器内含官方便携 **WezTerm**、**starship.exe**、`install.ps1` 与全部配置。双击运行（或 `/S` 静默安装）→ 装到 `%LOCALAPPDATA%\Programs\wezterm4neil\`，自动注册用户 PATH 并把配置写入 `~/.config`；自带卸载器 |
 | 全部 | 每个包内均有 `VERSIONS.txt` | 见下节 |
 
 > ⚠️ fish-on-Windows 的取舍：fish 官方**不提供 Windows 原生二进制**（官方支持 WSL/MSYS2），
@@ -42,10 +42,19 @@
 > 若检测到 WSL 可用 `.\install.ps1 -SetupWslFish` 把它同步进 WSL 家目录；
 > 在 WSL 终端里 `fish` 即可获得与 macOS/Linux 一致的环境。没有假装 fish 原生可用。
 
+> ⚠️ **Linux 安装警告**：`.deb` 声明了 `Conflicts/Replaces/Provides: wezterm, fish, starship`，
+> 安装本包会**替换/移除**系统里通过官方渠道安装的这三个软件（同抢 `/usr/bin` 路径所致）。
+> 卸载本包（`sudo apt remove wezterm4neil`）**不会**自动恢复它们。如需恢复官方版请按官方渠道重装：
+> WezTerm 官方 apt 源：`curl -fsSL https://apt.fury.io/wez/gpg.key | sudo gpg --yes --dearmor -o /usr/share/keyrings/wezterm-fury.gpg`，
+> 再写入 `deb [signed-by=/usr/share/keyrings/wezterm-fury.gpg] https://apt.fury.io/wez/ * *` 到 `/etc/apt/sources.list.d/wezterm.list`，然后 `sudo apt update && sudo apt install wezterm`（详见 https://wezterm.org/install/linux.html）；
+> fish 见 https://fishshell.com/；starship：`curl -sS https://starship.rs/install.sh | sh`（https://starship.rs）。
+
+> ℹ️ GitHub 每次发布会自动附带 **Source code (zip)** 与 **Source code (tar.gz)** 两个源码包，本项目不额外上传源码资产。
+
 ## VERSIONS.txt 说明
 
-每次 CI 解析上游三个仓库 `releases/latest` 后生成 `VERSIONS.txt` 并随每个安装包分发
-（Release 页也单独附一份）。内容示例（字段以实际生成为准）：
+每次 CI 解析上游三个仓库 `releases/latest` 后生成 `VERSIONS.txt` 并内嵌到每个安装包。
+内容示例（字段以实际生成为准）：
 
 ```text
 # 生成时间(UTC): 2026-09-07T00:00:00Z
@@ -118,7 +127,7 @@ bash /etc/wezterm4neil/install.sh --link
 
 > 注意：本 deb 用 `Conflicts/Replaces/Provides` 声明会替换系统自带的
 > `wezterm` / `fish` / `starship` 包（因为 /usr/bin 下同名文件所有权冲突是 dpkg 不允许的）。
-> 卸载 `wezterm4neil` 后，如需官方原版请自行 `apt install wezterm fish starship` 重装。
+> 卸载 `wezterm4neil` 后，如需官方原版请按上文「Linux 安装警告」⚠️ 块中的官方渠道命令重装。
 
 ## 工作原理
 
@@ -130,9 +139,10 @@ bash /etc/wezterm4neil/install.sh --link
    `starship/starship` 三个仓库 `releases/latest` → 下载各平台官方产物 + 官方许可证
    → 生成 `VERSIONS.txt`（含本仓库 `$GITHUB_SHA`）→ 上传 artifact。
 3. **build-* 三平台 job**（并行，依赖 fetch-upstreams）：拉取 artifact + checkout 本仓库，
-   按上表逻辑组装 `.deb` / `.dmg` / `.zip`，各自内置 `VERSIONS.txt` 与许可证目录。
-4. **release job**：汇总全部产物 → `sha256sum` 生成 `SHA256SUMS.txt` →
-   `gh release create/upload`（同一天重复触发则只补传，幂等）。
+   按上表逻辑组装 `.deb` / `.dmg` / `.exe`，各自内置 `VERSIONS.txt` 与许可证目录；
+   随后 **smoke-test-linux** 解包 `.deb` 实测捆绑二进制与 `install.sh`（CI 自证可用）。
+4. **release job**：汇总三件产物 → `gh release create/upload`（同一天重复触发则清理旧资产后
+   只保留 deb/dmg/exe 补传，幂等）；Source code 源码包由 GitHub 自动附赠。
 5. **preview job**：用 [VHS](https://github.com/charmbracelet/vhs) 渲染
    `preview/terminal-demo.tape` 为 `assets/preview.gif`，**内容有变化才 commit 回仓库**
    （防空提交）；README 用带 `alt` 的 Markdown 引用该图，便于搜索引擎抓取。
