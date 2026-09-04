@@ -60,18 +60,46 @@ jobs:
           mkdir -p upstream licenses
           AUTH=(); [[ -n "${GH_TOKEN:-}" ]] && AUTH=(-H "Authorization: Bearer $GH_TOKEN")
 
-          api() { curl -fsSL "${AUTH[@]}" "$@"; }
+          api() { curl -fsSL --retry 3 --retry-all-errors "${AUTH[@]}" "$@"; }
+
+          # 资产匹配工具（对上游命名变更容错）：
+          #   firsturl <jq谓词>            ← 从 stdin JSON 的 assets 里取第一个匹配 URL（无匹配输出空）
+          #   pick3 <json> <主谓词> <备选谓词> <输出文件> <组件名>
+          #     主规则失效 → 放宽备选；仍无匹配 → 列出该 release 全部资产名并 exit 1（绝不静默产出空包）
+          firsturl() { jq -r "$1" | sed '/^null$/d' | head -n1; }
+          pick3() {
+            local json="$1" primary="$2" fallback="$3" out="$4" label="$5"
+            local url
+            url="$(firsturl "$primary" <<<"$json")"
+            [[ -z "$url" ]] && url="$(firsturl "$fallback" <<<"$json")"
+            if [[ -z "$url" ]]; then
+              echo "✘ $label: 未匹配到下载资产（上游命名规则可能已变）。该 release 全部资产:" >&2
+              jq -r '.assets[].name' <<<"$json" | sed 's/^/    /' >&2
+              exit 1
+            fi
+            api "$url" -o "$out"
+            [[ -s "$out" ]] || { echo "✘ $label: 下载结果为空文件 $out" >&2; exit 1; }
+            echo "✔ $label -> $out"
+          }
 
           # ---- WezTerm (wezterm/wezterm) -----------------------------------
           WEZ_JSON="$(api https://api.github.com/repos/wezterm/wezterm/releases/latest)"
           WEZ_VER="$(jq -r .tag_name <<<"$WEZ_JSON")"
           echo "wezterm latest tag: $WEZ_VER"
-          pick() { jq -r --arg pat "$1" '.assets[] | select(.name | test($pat)) | .browser_download_url' <<<"$WEZ_JSON" | head -n1; }
           # 命名规律（2026-09 API 实测）: wezterm-<tag>.Ubuntu22.04.deb /
           #   WezTerm-macos-<tag>.zip / WezTerm-windows-<tag>.zip
-          api "$(pick "Ubuntu22\\.04\\.deb$")" -o upstream/wezterm-linux.deb
-          api "$(pick "^WezTerm-macos-.*\\.zip$")" -o upstream/wezterm-macos.zip
-          api "$(pick "^WezTerm-windows-.*\\.zip$")" -o upstream/wezterm-windows.zip
+          pick3 "$WEZ_JSON" \
+            '.assets[] | select(.name | (startswith("wezterm-") and endswith(".deb"))) | .browser_download_url' \
+            '.assets[] | select(.name | endswith(".deb")) | .browser_download_url' \
+            upstream/wezterm-linux.deb wezterm-linux
+          pick3 "$WEZ_JSON" \
+            '.assets[] | select(.name | (startswith("WezTerm-macos-") and endswith(".zip"))) | .browser_download_url' \
+            '.assets[] | select(.name | (contains("macos") and endswith(".zip"))) | .browser_download_url' \
+            upstream/wezterm-macos.zip wezterm-macos
+          pick3 "$WEZ_JSON" \
+            '.assets[] | select(.name | (startswith("WezTerm-windows-") and endswith(".zip"))) | .browser_download_url' \
+            '.assets[] | select(.name | (contains("windows") and endswith(".zip"))) | .browser_download_url' \
+            upstream/wezterm-windows.zip wezterm-windows
 
           # ---- fish (fish-shell/fish-shell) ---------------------------------
           FISH_JSON="$(api https://api.github.com/repos/fish-shell/fish-shell/releases/latest)"
@@ -79,8 +107,9 @@ jobs:
           echo "fish latest tag: $FISH_VER"
           # 官方 release 无 .deb；Linux 官方产物为自包含预编译单文件 tar.xz
           # （fish-<ver>-linux-x86_64.tar.xz）。取不到则回退 runner 发行版 apt deb。
-          FISH_URL="$(jq -r '.assets[] | select(.name | test("linux-x86_64\\.tar\\.xz$")) | .browser_download_url' <<<"$FISH_JSON" | head -n1)"
-          if [[ -n "$FISH_URL" && "$FISH_URL" != "null" ]]; then
+          FISH_URL="$(firsturl '.assets[] | select(.name | (startswith("fish-") and endswith("linux-x86_64.tar.xz"))) | .browser_download_url' <<<"$FISH_JSON")"
+          [[ -z "$FISH_URL" ]] && FISH_URL="$(firsturl '.assets[] | select(.name | (contains("linux") and endswith(".tar.xz"))) | .browser_download_url' <<<"$FISH_JSON")"
+          if [[ -n "$FISH_URL" ]]; then
             api "$FISH_URL" -o upstream/fish-linux.tar.xz
             echo "fish linux: official tarball"
           else
@@ -90,8 +119,8 @@ jobs:
             mv upstream/fish_*.deb upstream/fish-apt.deb
           fi
           # macOS: 官方 pkg（可选，缺失时 mac 侧用 brew 兜底）
-          FISH_PKG_URL="$(jq -r '.assets[] | select(.name | endswith(".pkg")) | .browser_download_url' <<<"$FISH_JSON" | head -n1)"
-          if [[ -n "$FISH_PKG_URL" && "$FISH_PKG_URL" != "null" ]]; then
+          FISH_PKG_URL="$(firsturl '.assets[] | select(.name | endswith(".pkg")) | .browser_download_url' <<<"$FISH_JSON")"
+          if [[ -n "$FISH_PKG_URL" ]]; then
             api "$FISH_PKG_URL" -o upstream/fish-macos.pkg && echo "fish macos: official pkg"
           else
             echo "fish macos: 官方无 pkg（install.command 将回退 brew）"
@@ -102,10 +131,20 @@ jobs:
           STAR_JSON="$(api https://api.github.com/repos/starship/starship/releases/latest)"
           STAR_VER="$(jq -r .tag_name <<<"$STAR_JSON")"
           echo "starship latest tag: $STAR_VER"
-          sasset() { jq -r --arg n "$1" '.assets[] | select(.name == $n) | .browser_download_url' <<<"$STAR_JSON" | head -n1; }
-          api "$(sasset starship-x86_64-unknown-linux-gnu.tar.gz)" -o upstream/starship-linux.tar.gz
-          api "$(sasset starship-x86_64-apple-darwin.tar.gz)" -o upstream/starship-macos.tar.gz
-          api "$(sasset starship-x86_64-pc-windows-msvc.zip)" -o upstream/starship-windows.zip
+          # starship: 官方单文件二进制（命名形如 starship-x86_64-unknown-linux-gnu.tar.gz /
+          #   -apple-darwin… / -pc-windows-msvc.zip）
+          pick3 "$STAR_JSON" \
+            '.assets[] | select(.name | (contains("unknown-linux-gnu") and endswith(".tar.gz"))) | .browser_download_url' \
+            '.assets[] | select(.name | (contains("linux") and endswith(".tar.gz"))) | .browser_download_url' \
+            upstream/starship-linux.tar.gz starship-linux
+          pick3 "$STAR_JSON" \
+            '.assets[] | select(.name | (contains("apple-darwin") and endswith(".tar.gz"))) | .browser_download_url' \
+            '.assets[] | select(.name | (contains("darwin") and endswith(".tar.gz"))) | .browser_download_url' \
+            upstream/starship-macos.tar.gz starship-macos
+          pick3 "$STAR_JSON" \
+            '.assets[] | select(.name | (contains("pc-windows-msvc") and endswith(".zip"))) | .browser_download_url' \
+            '.assets[] | select(.name | (contains("windows") and endswith(".zip"))) | .browser_download_url' \
+            upstream/starship-windows.zip starship-windows
 
           # ---- 上游许可证（MIT / GPL-2 / ISC，均可再分发） ------------------
           curl -fsSL "${AUTH[@]}" "https://raw.githubusercontent.com/wezterm/wezterm/$WEZ_VER/LICENSE.md" -o licenses/wezterm-LICENSE || echo "warn: wezterm LICENSE.md 下载失败"

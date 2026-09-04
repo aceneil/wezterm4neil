@@ -35,7 +35,7 @@ Section "Install"
   nsExec::ExecToStack 'powershell.exe -NoProfile -ExecutionPolicy Bypass -File "$INSTDIR\install.ps1"'
   Pop $0
   ${If} $0 != "0"
-    DetailPrint "install.ps1 返回非零($0)，配置部署可能未完成；可手动运行: powershell -ExecutionPolicy Bypass -File `"$INSTDIR\install.ps1`""
+    DetailPrint "install.ps1 返回非零($0)，配置部署可能未完成；可手动运行: powershell -ExecutionPolicy Bypass -File '$INSTDIR\install.ps1'"
   ${EndIf}
 
   ; 卸载器
