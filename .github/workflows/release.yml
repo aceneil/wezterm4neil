@@ -58,7 +58,7 @@ jobs:
           mkdir -p upstream licenses
           AUTH=(); [[ -n "${GH_TOKEN:-}" ]] && AUTH=(-H "Authorization: Bearer $GH_TOKEN")
 
-          api() { curl -fsSL "${AUTH[@]}" "$1"; }
+          api() { curl -fsSL "${AUTH[@]}" "$@"; }
 
           # ---- WezTerm (wezterm/wezterm) -----------------------------------
           WEZ_JSON="$(api https://api.github.com/repos/wezterm/wezterm/releases/latest)"
@@ -67,9 +67,9 @@ jobs:
           pick() { jq -r --arg pat "$1" '.assets[] | select(.name | test($pat)) | .browser_download_url' <<<"$WEZ_JSON" | head -n1; }
           # 命名规律（2026-09 API 实测）: wezterm-<tag>.Ubuntu22.04.deb /
           #   WezTerm-macos-<tag>.zip / WezTerm-windows-<tag>.zip
-          api "$(pick 'Ubuntu22\\.04\\.deb$')" -o upstream/wezterm-linux.deb
-          api "$(pick '^WezTerm-macos-.*\\.zip$')" -o upstream/wezterm-macos.zip
-          api "$(pick '^WezTerm-windows-.*\\.zip$')" -o upstream/wezterm-windows.zip
+          api "$(pick "Ubuntu22\\.04\\.deb$")" -o upstream/wezterm-linux.deb
+          api "$(pick "^WezTerm-macos-.*\\.zip$")" -o upstream/wezterm-macos.zip
+          api "$(pick "^WezTerm-windows-.*\\.zip$")" -o upstream/wezterm-windows.zip
 
           # ---- fish (fish-shell/fish-shell) ---------------------------------
           FISH_JSON="$(api https://api.github.com/repos/fish-shell/fish-shell/releases/latest)"
