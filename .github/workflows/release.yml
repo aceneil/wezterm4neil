@@ -326,7 +326,7 @@ jobs:
   # ---------------------------------------------------------------------------
   smoke-test-linux:
     name: Smoke test Linux .deb
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-22.04
     needs: build-linux
     if: "${{ !(github.event_name == 'push' && github.event.head_commit != null && startsWith(github.event.head_commit.message, 'docs: update terminal preview GIF')) }}"
     steps:
@@ -489,6 +489,10 @@ jobs:
           $out  = "wezterm4neil-$env:VER-windows.exe"
           & $nsis /DSOURCE_DIR="$src" /DAPP_VERSION="$env:VER" /DOUT_FILE="$out" packaging\windows\installer.nsi
           if ($LASTEXITCODE -ne 0) { throw "makensis 失败 exit=$LASTEXITCODE" }
+          # makensis 把相对 OutFile 写在脚本目录下（packaging\windows\）→ 定位并移到仓库根
+          $exe = Get-ChildItem -Path . -Recurse -Filter "wezterm4neil-$env:VER-windows.exe" -ErrorAction SilentlyContinue | Select-Object -First 1
+          if (-not $exe) { throw "编译后找不到 wezterm4neil-$env:VER-windows.exe" }
+          if ($exe.DirectoryName -ne (Get-Location).Path) { Move-Item $exe.FullName (Join-Path (Get-Location) $exe.Name) -Force }
           Get-ChildItem -Filter "wezterm4neil-*-windows.exe" | Select-Object Name, Length
 
       - uses: actions/upload-artifact@v4
