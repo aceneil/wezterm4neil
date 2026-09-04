@@ -14,10 +14,11 @@
 
 ---
 
-WezTerm4Neil 帮你把三款好评如潮的开源终端工具组合成一套**好看、顺手、跨平台一致**的终端环境：
+WezTerm4Neil 帮你把几款好评如潮的开源终端工具组合成一套**好看、顺手、跨平台一致**的终端环境：
 
 - 🚀 **[WezTerm](https://wezterm.org/)** —— 现代 GPU 加速终端模拟器，自动读取你 `~/.ssh/config` 里的主机别名，一键 SSH 直达
-- 🐟 **[Fish Shell](https://fishshell.com/)** —— 号称「开箱即用」的友好 shell：自动补全、语法高亮、拼写建议
+- 🐟 **[Fish Shell](https://fishshell.com/)** —— macOS / Linux 的默认 shell：自动补全、语法高亮、拼写建议
+- 🐚 **[Nushell](https://www.nushell.sh/)** —— Windows 的默认 shell：**原生跨平台**的现代 shell，无需 WSL
 - ✨ **[Starship](https://starship.rs/)** —— 极速、可定制的跨 shell 提示符（显示 git 分支、目录、运行时间等）
 
 **不需要折腾配置文件**：每周末 GitHub Actions 自动从上游拉取最新版软件，打包成安装包放到 [Releases](https://github.com/aceneil/wezterm4neil/releases)。
@@ -54,49 +55,25 @@ wezterm
 
 ### Windows
 1. 双击 `wezterm4neil-*.exe`（或命令行加 `/S` 静默安装）
-2. 安装器自动：装到 `%LOCALAPPDATA%\Programs\wezterm4neil` → 注册 PATH → 配置写入 `~/.config`
-3. 开始菜单/新窗口打开 WezTerm
-4. 想用 Fish？见下方「🐟 Windows 手动安装 fish」
+2. 安装器自动：装到 `%LOCALAPPDATA%\Programs\wezterm4neil` → 注册 PATH → 写入 Nu 自动加载
+3. 打开 WezTerm —— **默认就是 Nushell + Starship**（nu.exe 已随包内置，真正的开箱即用，不需要 WSL）
 
-#### 🐟 Windows 手动安装 fish（可选）
+#### 🐚 Nushell 与 Starship 是怎么生效的
+安装器会替你做三件事（等价于 Nu 官方推荐的配置步骤）：
+1. 把随包的 `nu.exe` 装好并加入 PATH
+2. 在 Nu 自动加载目录写入别名：`%APPDATA%\nushell\vendor\autoload\wezterm4neil.nu`
+3. 用随包 starship 现场生成提示符：`%APPDATA%\nushell\vendor\autoload\starship.nu`
 
-fish 官方不提供 Windows 原生版，官方支持的两条路是 **WSL**（推荐，体验完整）和 **MSYS2**（轻量）：
+（Nu 每次启动会自动加载该目录下所有 `.nu` 文件。）
 
-**方案 A：WSL（推荐，体验与 macOS/Linux 一致）**
-```bash
-# 1) 首次安装 WSL（需要重启一次）——在 Windows 的 cmd/PowerShell 里：
-wsl --install
+> 如果你没用本安装包、而是单独装的 Nushell，可以手动执行 Nu 官方推荐的两行：
+> ```nu
+> mkdir ($nu.data-dir | path join "vendor/autoload")
+> starship init nu | save -f ($nu.data-dir | path join "vendor/autoload/starship.nu")
+> ```
 
-# 2) 进入 Ubuntu 终端后，安装 fish 和 starship：
-sudo apt update
-sudo apt install -y fish
-curl -sS https://starship.rs/install.sh | sh
-
-# 3) 应用本项目配置（直接用 GitHub 上的最新版）：
-mkdir -p ~/.config/fish ~/.config/starship
-curl -fsSL -o ~/.config/fish/config.fish \
-  https://raw.githubusercontent.com/aceneil/wezterm4neil/main/config.fish
-curl -fsSL -o ~/.config/starship.toml \
-  https://raw.githubusercontent.com/aceneil/wezterm4neil/main/starship.toml
-
-# 4) 进入 fish：
-fish
-# （可选）把 fish 设为默认 shell：
-chsh -s /usr/bin/fish
-```
-
-> 💡 如果已经用上面的 `.exe` 安装器装过 WezTerm4Neil，可以偷懒：
-> 在 Windows 上运行一次 `install.ps1 -SetupWslFish`，它会自动把 `config.fish` 同步进 WSL 家目录。
-
-**方案 B：MSYS2（更轻量，适合不想装 WSL 的机器）**
-```bash
-# 在 MSYS2 终端里：
-pacman -Syu fish
-fish
-# 再把 config.fish / starship.toml 放到 MSYS2 家目录 ~/.config/ 下即可
-```
-
-装好后回到 **WezTerm**：新建标签页选 **Ubuntu**（或 MSYS2），就能看到带 Starship 提示符的 fish 了。
+> 🐟 想用 fish？macOS / Linux 安装包默认就是 fish；Windows 因 fish 官方不提供原生版，
+> 所以默认 Nushell（原生、无需 WSL）——体验不打折，还省一层虚拟机。
 
 ### 只用配置、软件自己装好了？
 ```bash
@@ -111,11 +88,12 @@ cd wezterm4neil
 
 | 文件 | 作用 |
 | :--- | :--- |
-| `wezterm.lua` | WezTerm：自动读取 `~/.ssh/config` 生成 SSH 域、字体与外观、分屏快捷键 |
-| `config.fish` | Fish：常用别名（`ll` / git 快捷等）+ 自动加载 Starship |
+| `wezterm.lua` | WezTerm：自动读取 `~/.ssh/config` 生成 SSH 域、字体与外观、分屏快捷键（Windows 默认打开 Nushell） |
+| `config.fish` | Fish（macOS / Linux）：常用别名（`ll` / git 快捷等）+ 自动加载 Starship |
+| `nushell.nu` | Nushell（Windows）：常用别名，装进 Nu 自动加载目录 |
 | `starship.toml` | Starship：干净清爽的提示符模板（可自定义） |
 
-想改配色/字体/快捷键？直接改这三个文件后 `git push`，几十分钟后 Releases 就会出一版新安装包。
+想改配色/字体/快捷键？直接改这几个文件后 `git push`，几十分钟后 Releases 就会出一版新安装包。
 
 ## ❓ 常见问题
 

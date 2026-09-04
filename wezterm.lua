@@ -94,4 +94,20 @@ config.keys = {
   { key = 'j', mods = 'LEADER', action = wezterm.action.ActivatePaneDirection 'Down' },
 }
 
+-- ----------------------------------------------------------------------------
+-- 5) Windows：默认 shell = 随包安装的 Nushell（若存在）；找不到则用系统默认
+--    （Windows 版安装包内置 nu.exe；macOS/Linux 仍由用户自行选择 shell）
+-- ----------------------------------------------------------------------------
+if wezterm.target_triple and wezterm.target_triple:find('windows') then
+  local la = os.getenv('LOCALAPPDATA') or ''
+  if la ~= '' then
+    local nu_exe = la .. '\\Programs\\wezterm4neil\\nu\\nu.exe'
+    local f = io.open(nu_exe, 'r')
+    if f then
+      f:close()
+      config.default_prog = { nu_exe }
+    end
+  end
+end
+
 return config

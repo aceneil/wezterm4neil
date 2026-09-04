@@ -1,15 +1,14 @@
 # ============================================================================
 # WezTerm4Neil · install.ps1 (Windows)
 #
-# 双模式：
-#   ① 捆绑离线模式（默认，推荐）——在 Release 的 .zip 解压目录内运行。
-#      脚本检测到同目录捆绑产物（WezTerm\ + starship.exe）后：
+# 离线捆绑安装（默认，推荐）——在 .exe 安装目录 / zip 解压目录内运行。
+#   检测到同目录捆绑产物（WezTerm\ + starship.exe + nu\）后：
 #        - WezTerm 便携版复制到 %LOCALAPPDATA%\Programs\wezterm4neil\WezTerm
 #        - starship.exe 复制到 %LOCALAPPDATA%\Programs\wezterm4neil\
 #        - 注册用户级 PATH（安装目录）
-#        - 配置文件写入 ~/.config（wezterm / fish / starship）
-#        - fish 说明：官方不提供 Windows 原生二进制 → 提示用 WSL
-#          （见 -SetupWslFish 开关，把 config.fish 写入 WSL 家目录）
+#        - 配置文件写入 ~/.config（wezterm / starship）
+#        - Nushell 原生 shell：nu\ 复制到 %LOCALAPPDATA%\Programs\wezterm4neil\nu
+#          （WezTerm 默认启动 Nu；Nu 自动加载目录写入 starship 提示符与别名）
 #   ② 在线回退——脱离捆绑产物单独运行本脚本（例如直接下载 install.ps1）：
 #        winget install wez.wezterm / Starship.Starship 后，仅部署配置。
 #
@@ -17,12 +16,12 @@
 #   powershell -ExecutionPolicy Bypass -File .\install.ps1            # 默认拷贝
 #   powershell -ExecutionPolicy Bypass -File .\install.ps1 -Link      # 软链接
 #   powershell -ExecutionPolicy Bypass -File .\install.ps1 -Force     # 跳过幂等判断强制重装
-#   powershell -ExecutionPolicy Bypass -File .\install.ps1 -SetupWslFish  # 额外把 config.fish 写入 WSL
 #
 # 安装目标（%USERPROFILE% = C:\Users\<你>）:
 #   wezterm.lua   -> %USERPROFILE%\.config\wezterm\wezterm.lua
-#   config.fish   -> %USERPROFILE%\.config\fish\config.fish
 #   starship.toml -> %USERPROFILE%\.config\starship.toml
+#   Nushell       -> %LOCALAPPDATA%\Programs\wezterm4neil\nu\nu.exe
+#   Nu 提示符/别名 -> %APPDATA%\nushell\vendor\autoload\{starship.nu, wezterm4neil.nu}
 #
 # 说明: 创建符号链接需要「开发者模式」或管理员身份；失败时自动回退为拷贝。
 # 官方出处: wezterm winget id = wez.wezterm (wezterm.org/install/windows.html)
@@ -30,8 +29,7 @@
 # ============================================================================
 param(
     [switch]$Link,
-    [switch]$Force,
-    [switch]$SetupWslFish
+    [switch]$Force
 )
 $ErrorActionPreference = 'Stop'
 
@@ -42,6 +40,7 @@ $AppDir     = Join-Path $env:LOCALAPPDATA 'Programs\wezterm4neil'
 # 捆绑检测
 $BundledWezTerm  = Test-Path (Join-Path $Root 'WezTerm')
 $BundledStarship = Test-Path (Join-Path $Root 'starship.exe')
+$BundledNu       = Test-Path (Join-Path $Root 'nu\nu.exe')
 $Bundled         = $BundledWezTerm -and $BundledStarship
 
 function Write-Log  { Write-Host "[wezterm4neil] $args" -ForegroundColor Green }
@@ -63,9 +62,9 @@ function Add-ToUserPath([string]$dir) {
 }
 
 # ---- 配置文件部署 ------------------------------------------------------------
+# Windows 只部署 wezterm 与 starship 配置；shell 用随包 Nushell（见下文 Nu 部署）
 $Items = @(
     @{ Src = 'wezterm.lua';   Dir = 'wezterm'; File = 'wezterm.lua' },
-    @{ Src = 'config.fish';   Dir = 'fish';     File = 'config.fish' },
     @{ Src = 'starship.toml'; Dir = '.';        File = 'starship.toml' }
 )
 
@@ -110,22 +109,24 @@ function Install-ConfigFiles {
     }
 }
 
-# ---- WSL fish 分支：把 config.fish 写入 WSL 家目录 ----------------------------
-function Install-FishToWsl {
-    $wsl = Get-Command wsl.exe -ErrorAction SilentlyContinue
-    if (-not $wsl) { Write-Warn "未检测到 wsl.exe，跳过 WSL fish 配置"; return }
-    $src = Join-Path $Root 'config.fish'
-    if (-not (Test-Path $src)) { Write-Warn "找不到 config.fish，跳过 WSL fish 配置"; return }
-
-    Write-Log "检测到 WSL，正在写入 config.fish 到 WSL 家目录..."
-    $b64 = [Convert]::ToBase64String([Text.Encoding]::UTF8.GetBytes((Get-Content $src -Raw -Encoding UTF8)))
-    & wsl.exe -e sh -lc "mkdir -p ~/.config/fish && printf '%s' '$b64' | base64 -d > ~/.config/fish/config.fish"
-    if ($LASTEXITCODE -eq 0) {
-        Write-Log "已写入 WSL: ~/.config/fish/config.fish"
-        Write-Info "WSL 内请确保已安装 fish 与 starship： sudo apt install fish && curl -sS https://starship.rs/install.sh | sh"
-    } else {
-        Write-Warn "写入 WSL 失败（exit=$LASTEXITCODE），请手动复制 config.fish"
+# ---- Nu 自动加载工具（starship 提示符 + 别名写入 Nu autoload 目录）-----------
+function Install-NuAutoload {
+    param([string]$RootDir)
+    $nuData = Join-Path $env:APPDATA 'nushell'
+    $nuAuto = Join-Path $nuData 'vendor\autoload'
+    New-Item -ItemType Directory -Path $nuAuto -Force | Out-Null
+    $aliasSrc = Join-Path $RootDir 'nushell.nu'
+    if (Test-Path $aliasSrc) {
+        Copy-Item $aliasSrc (Join-Path $nuAuto 'wezterm4neil.nu') -Force
+        Write-Log "Nu 别名已写入: vendor\autoload\wezterm4neil.nu"
     }
+    $star = Join-Path $RootDir 'starship.exe'
+    if (Test-Path $star) {
+        $initLines = & $star init nu
+        $initLines | Set-Content -Path (Join-Path $nuAuto 'starship.nu') -Encoding utf8
+        Write-Log "Nu starship 提示符已写入: vendor\autoload\starship.nu"
+    }
+    Write-Info "WezTerm 将默认打开 Nushell + Starship（开箱即用）"
 }
 
 # ============================ 主流程 ==========================================
@@ -163,6 +164,18 @@ if ($Bundled) {
 
     Write-Log "已安装: $dstWez"
     Write-Log "已安装: $dstStar"
+
+    # ---- Nushell（Windows 原生默认 shell）→ nu\nu.exe ---------------------
+    $dstNuDir = Join-Path $AppDir 'nu'
+    if ($BundledNu) {
+        $sameDir = ($rootReal -and $appReal -and $rootReal -eq $appReal)
+        if (-not $sameDir -and -not (Test-Path (Join-Path $dstNuDir 'nu.exe'))) {
+            Write-Log "复制 Nushell -> $dstNuDir"
+            Copy-Item (Join-Path $Root 'nu') $dstNuDir -Recurse -Force
+        }
+        Add-ToUserPath $dstNuDir
+        Write-Log "已安装: $(Join-Path $dstNuDir 'nu.exe')"
+    }
 } else {
     # ---- ② 在线回退 ---------------------------------------------------------
     Write-Warn "未检测到捆绑产物（WezTerm\ 与 starship.exe），切换到 winget 安装："
@@ -189,14 +202,9 @@ if ($Bundled) {
 # 配置文件（两种模式都会执行）
 Install-ConfigFiles
 
-# fish 说明与 WSL 分支
-Write-Host ""
-Write-Warn "fish 官方不提供 Windows 原生二进制（官方支持 WSL/MSYS2 环境）。"
-Write-Warn "config.fish 已写入本机 %USERPROFILE%\.config\fish\ 以备 WSL 使用。"
-if ($SetupWslFish) {
-    Install-FishToWsl
-} else {
-    Write-Info "如需把 config.fish 同步进 WSL：重新运行  .\install.ps1 -SetupWslFish"
+# ---- Nushell 自动加载：starship 提示符 + 别名（有随包 nu 才做）---------------
+if ($BundledNu) {
+    Install-NuAutoload -RootDir $Root
 }
 
 # 版本信息
@@ -209,6 +217,6 @@ if (Test-Path (Join-Path $Root 'VERSIONS.txt')) {
 Write-Host ""
 Write-Log "完成！生效方式:"
 Write-Log "  · WezTerm —— 从开始菜单/新窗口启动 WezTerm（便携版无需管理员）"
-Write-Log "  · Starship —— 新开终端生效；在 fish/bash/powershell 配置里执行 starship init <shell>"
-Write-Log "  · 想以 fish 为主 shell？安装 WSL 并在 WSL 终端中: sudo apt install fish"
+Write-Log "  · Shell —— WezTerm 默认打开 Nushell + Starship（随包内置，开箱即用）"
+Write-Log "  · 在 Nu 里试试: ll / gs / gcm 'hi' （别名来自 Nu 自动加载目录）"
 Write-Host ""

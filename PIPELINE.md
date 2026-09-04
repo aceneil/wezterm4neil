@@ -25,15 +25,16 @@
 ```
 
 ### ① `fetch-upstreams` —— 拉取上游最新版
-1. GitHub API 解析三个上游仓库的 `releases/latest`：
-   - `wezterm/wezterm`、`fish-shell/fish-shell`、`starship/starship`
+1. GitHub API 解析四个上游仓库的 `releases/latest`：
+   - `wezterm/wezterm`、`fish-shell/fish-shell`、`starship/starship`、`nushell/nushell`
+   （nushell 仅 Windows 用：作为原生默认 shell）
 2. 按平台挑选资产，**对上游命名变化容错**：
    - 主规则：前缀 + 后缀匹配（例如 `WezTerm-macos-*` + `.zip`）
    - 主规则失效 → 放宽的备选规则（例如「任何含 macos 的 .zip」）
    - 全部失效 → 打印该 release 的**全部资产名清单**并明确失败（绝不静默产出空包）
-3. 下载 7 个上游文件 + 3 份官方 LICENSE（合规再分发）；所有下载带 curl 重试与空文件守卫
+3. 下载 9 个上游文件（wezterm×3 / fish×2 / starship×3 / nushell×1）+ 4 份官方 LICENSE（合规再分发）；所有下载带 curl 重试与空文件守卫
 4. 生成 `VERSIONS.txt`（组件版本 / 来源 / commit / 日期），随每个安装包内嵌
-5. 上传 artifact：`upstream`（≈242 MB）+ `versions-txt`
+5. 上传 artifact：`upstream`（≈300 MB）+ `versions-txt`
 
 ### ② `preview` —— 自动生成 README 预览图（不阻塞主流程）
 1. 安装 fish + starship，搭一个演示 git 仓库
@@ -65,11 +66,13 @@
 4. `create-dmg` → `wezterm4neil-<版本>-macos.dmg`（≈130 MB）→ artifact `macos-dmg`
 
 ### ⑥ `build-windows` —— 组装 `.exe`（NSIS 安装器）
-1. 组装离线 payload：解包官方便携 **WezTerm**（找到 `wezterm-gui.exe` 才继续）+ `starship.exe` + `install.ps1` + 配置 + 许可证
+1. 组装离线 payload：解包官方便携 **WezTerm** + `starship.exe` + **Nushell 原生版 `nu.exe`** + `install.ps1` + 配置 + 许可证；并在 windows runner 上**真机跑 `nu.exe --version`** 自证可执行
 2. `choco install nsis` → `packaging/windows/installer.nsi` 编译
-3. 产物自动移到仓库根：`wezterm4neil-<版本>-windows.exe`（≈50 MB）
-   - 安装到 `%LOCALAPPDATA%\Programs\wezterm4neil`
-   - 自动注册用户 PATH、配置写入 `~/.config`、自带卸载器
+3. 产物自动移到仓库根：`wezterm4neil-<版本>-windows.exe`（≈60 MB）
+   - 安装到 `%LOCALAPPDATA%\Programs\wezterm4neil`（WezTerm / starship / nu）
+   - 自动注册用户 PATH
+   - Nu 自动加载目录写入 `starship.nu`（提示符，用捆绑 starship 现场生成）与 `wezterm4neil.nu`（别名）
+   - **WezTerm 默认打开 Nushell**（开箱即用，无需 WSL）；自带卸载器
 4. → artifact `windows-dist`
 
 ### ⑦ `release` —— 发布到 GitHub Release
@@ -83,7 +86,7 @@
 
 | 耗时来源 | 说明 |
 | :--- | :--- |
-| 上游全家桶 | 每轮下载/上传 ≈242 MB，加上三平台产物（dmg 130 MB / exe 50 MB / deb 40 MB）跨 job 搬运 |
+| 上游全家桶 | 每轮下载/上传 ≈300 MB（新增 Nushell ~57 MB），加上三平台产物（dmg 130 MB / exe 60 MB / deb 40 MB）跨 job 搬运 |
 | Runner 冷启动 | macOS / Windows 托管 runner 每次排队 + 开机 2-5 分钟 |
 | 真下载与打包 | 7 个上游文件 + NSIS lzma 压缩 200 MB payload 等 |
 

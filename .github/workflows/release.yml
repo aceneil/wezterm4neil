@@ -146,10 +146,20 @@ jobs:
             '.assets[] | select(.name | (contains("windows") and endswith(".zip"))) | .browser_download_url' \
             upstream/starship-windows.zip starship-windows
 
+          # ---- Nushell (nushell/nushell) — Windows 原生默认 shell ------------
+          NUS_JSON="$(api https://api.github.com/repos/nushell/nushell/releases/latest)"
+          NUS_VER="$(jq -r .tag_name <<<"$NUS_JSON")"
+          echo "nushell latest tag: $NUS_VER"
+          pick3 "$NUS_JSON" \
+            '.assets[] | select(.name | (startswith("nu-") and contains("x86_64-pc-windows-msvc") and endswith(".zip"))) | .browser_download_url' \
+            '.assets[] | select(.name | (contains("x86_64-pc-windows-msvc") and endswith(".zip"))) | .browser_download_url' \
+            upstream/nushell-windows.zip nushell-windows
+
           # ---- 上游许可证（MIT / GPL-2 / ISC，均可再分发） ------------------
           curl -fsSL "${AUTH[@]}" "https://raw.githubusercontent.com/wezterm/wezterm/$WEZ_VER/LICENSE.md" -o licenses/wezterm-LICENSE || echo "warn: wezterm LICENSE.md 下载失败"
           curl -fsSL "${AUTH[@]}" "https://raw.githubusercontent.com/fish-shell/fish-shell/$FISH_VER/COPYING" -o licenses/fish-COPYING || echo "warn: fish COPYING 下载失败"
-          curl -fsSL "${AUTH[@]}" "https://raw.githubusercontent.com/starship/starship/$STAR_VER/LICENSE"  -o licenses/starship-LICENSE  || echo "warn: starship LICENSE 下载失败"
+          curl -fsSL --retry 3 "${AUTH[@]}" "https://raw.githubusercontent.com/starship/starship/$STAR_VER/LICENSE"  -o licenses/starship-LICENSE  || echo "warn: starship LICENSE 下载失败"
+          curl -fsSL --retry 3 "${AUTH[@]}" "https://raw.githubusercontent.com/nushell/nushell/$NUS_VER/LICENSE" -o licenses/nushell-LICENSE || echo "warn: nushell LICENSE 下载失败"
 
           # ---- VERSIONS.txt -------------------------------------------------
           {
@@ -186,6 +196,11 @@ jobs:
             echo "linux=starship-x86_64-unknown-linux-gnu.tar.gz"
             echo "macos=starship-x86_64-apple-darwin.tar.gz"
             echo "windows=starship-x86_64-pc-windows-msvc.zip"
+            echo ""
+            echo "[component:nushell]"
+            echo "version=$NUS_VER"
+            echo "source=https://github.com/nushell/nushell/releases/tag/$NUS_VER"
+            echo "windows=nu-<ver>-x86_64-pc-windows-msvc.zip (Windows 默认 shell，随 EXE 捆绑)"
           } > VERSIONS.txt
 
           echo "---- upstream ----"; ls -la upstream
@@ -464,8 +479,17 @@ jobs:
           Move-Item $star.FullName zst\starship.exe -Force
           Remove-Item zst\starship -Recurse -Force
 
-          # 配置 / 脚本 / 说明 / 版本 / 许可证
-          Copy-Item wezterm.lua, config.fish, starship.toml, install.ps1 zst\
+          # Nushell（Windows 原生默认 shell）→ zst\nu\nu.exe
+          Expand-Archive -Path dl/upstream/nushell-windows.zip -DestinationPath zst\nu -Force
+          $nuExe = Get-ChildItem -Path zst\nu -Recurse -Filter nu.exe | Select-Object -First 1
+          if (-not $nuExe) { throw "捆绑中找不到 nu.exe" }
+          Move-Item $nuExe.FullName zst\nu\nu.exe -Force
+          Get-ChildItem zst\nu | Where-Object Name -ne 'nu.exe' | Remove-Item -Recurse -Force
+          $nuVer = & zst\nu\nu.exe --version
+          Write-Host "nu.exe @ zst\nu\nu.exe  =>  $nuVer"   # Windows runner 真机自证
+
+          # 配置 / 脚本 / 说明 / 版本 / 许可证（Windows 不含 fish：shell 用随包 Nushell）
+          Copy-Item wezterm.lua, starship.toml, nushell.nu, install.ps1 zst\
           Copy-Item packaging/windows/README.txt zst\README.txt
           Copy-Item dl/VERSIONS.txt zst\VERSIONS.txt
           Copy-Item dl/licenses zst\licenses -Recurse
