@@ -56,7 +56,47 @@ wezterm
 1. 双击 `wezterm4neil-*.exe`（或命令行加 `/S` 静默安装）
 2. 安装器自动：装到 `%LOCALAPPDATA%\Programs\wezterm4neil` → 注册 PATH → 配置写入 `~/.config`
 3. 开始菜单/新窗口打开 WezTerm
-4. 想要完整 Fish + Starship 体验？建议配合 [WSL](https://learn.microsoft.com/windows/wsl/install)（fish 官方不提供 Windows 原生版）
+4. 想用 Fish？见下方「🐟 Windows 手动安装 fish」
+
+#### 🐟 Windows 手动安装 fish（可选）
+
+fish 官方不提供 Windows 原生版，官方支持的两条路是 **WSL**（推荐，体验完整）和 **MSYS2**（轻量）：
+
+**方案 A：WSL（推荐，体验与 macOS/Linux 一致）**
+```bash
+# 1) 首次安装 WSL（需要重启一次）——在 Windows 的 cmd/PowerShell 里：
+wsl --install
+
+# 2) 进入 Ubuntu 终端后，安装 fish 和 starship：
+sudo apt update
+sudo apt install -y fish
+curl -sS https://starship.rs/install.sh | sh
+
+# 3) 应用本项目配置（直接用 GitHub 上的最新版）：
+mkdir -p ~/.config/fish ~/.config/starship
+curl -fsSL -o ~/.config/fish/config.fish \
+  https://raw.githubusercontent.com/aceneil/wezterm4neil/main/config.fish
+curl -fsSL -o ~/.config/starship.toml \
+  https://raw.githubusercontent.com/aceneil/wezterm4neil/main/starship.toml
+
+# 4) 进入 fish：
+fish
+# （可选）把 fish 设为默认 shell：
+chsh -s /usr/bin/fish
+```
+
+> 💡 如果已经用上面的 `.exe` 安装器装过 WezTerm4Neil，可以偷懒：
+> 在 Windows 上运行一次 `install.ps1 -SetupWslFish`，它会自动把 `config.fish` 同步进 WSL 家目录。
+
+**方案 B：MSYS2（更轻量，适合不想装 WSL 的机器）**
+```bash
+# 在 MSYS2 终端里：
+pacman -Syu fish
+fish
+# 再把 config.fish / starship.toml 放到 MSYS2 家目录 ~/.config/ 下即可
+```
+
+装好后回到 **WezTerm**：新建标签页选 **Ubuntu**（或 MSYS2），就能看到带 Starship 提示符的 fish 了。
 
 ### 只用配置、软件自己装好了？
 ```bash
