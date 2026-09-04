@@ -420,16 +420,29 @@ jobs:
       contents: write
     if: "${{ !(github.event_name == 'push' && github.event.head_commit != null && startsWith(github.event.head_commit.message, 'docs: update terminal preview GIF')) }}"
     steps:
-      - name: Download all artifacts
+      - name: Download Linux artifact
         uses: actions/download-artifact@v4
         with:
-          pattern: |
-            linux-deb
-            macos-dmg
-            windows-dist
-            versions-txt
+          name: linux-deb
           path: dist
-          merge-multiple: true
+
+      - name: Download macOS artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: macos-dmg
+          path: dist
+
+      - name: Download Windows artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: windows-dist
+          path: dist
+
+      - name: Download version manifest
+        uses: actions/download-artifact@v4
+        with:
+          name: versions-txt
+          path: dist
 
       - name: Create GitHub Release
         env:
@@ -438,6 +451,9 @@ jobs:
         run: |
           set -euo pipefail
           cd dist
+          # 展平各 artifact 子目录（linux-deb/ macos-dmg/ windows-dist/ versions-txt/）
+          find . -mindepth 2 -type f -exec mv -n {} . \;
+          ls -la
           TAG="v${VER}"
           sha256sum wezterm4neil-* > SHA256SUMS.txt
           ls -la
