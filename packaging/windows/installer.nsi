@@ -12,7 +12,6 @@
 Unicode true
 !include "LogicLib.nsh"
 RequestExecutionLevel user        ; 不需要管理员（用户级安装）
-SetShellVarContext current        ; 快捷方式/卸载注册走当前用户（无需管理员）
 SetCompressor /SOLID lzma
 
 Name "WezTerm4Neil ${APP_VERSION}"
@@ -28,6 +27,7 @@ UninstPage instfiles
 
 ; ---- 安装区段 ----------------------------------------------------------------
 Section "Install"
+  SetShellVarContext current        ; 快捷方式/卸载注册走当前用户（无需管理员）
   SetOutPath "$INSTDIR"
   ; 递归打入整个 payload
   File /r "${SOURCE_DIR}\*.*"
@@ -68,6 +68,7 @@ SectionEnd
 
 ; ---- 卸载区段 ----------------------------------------------------------------
 Section "Uninstall"
+  SetShellVarContext current        ; 与安装一致：操作当前用户的快捷方式/注册表
   ; 快捷方式与注册表清理
   Delete "$DESKTOP\WezTerm4Neil.lnk"
   Delete "$SMPROGRAMS\WezTerm4Neil\WezTerm4Neil.lnk"
