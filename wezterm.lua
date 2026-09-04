@@ -86,10 +86,10 @@ config.initial_rows = 30
 config.macos_window_background_blur = 30
 
 -- ----------------------------------------------------------------------------
--- 3) 光标与窗口标题
+-- 3) 光标
 -- ----------------------------------------------------------------------------
 config.force_reverse_video_cursor = true
-config.window_title = 'WezTerm4Neil · ' .. (wezterm.hostname() or 'terminal')
+-- 注：窗口标题由 WezTerm 依据当前 shell/SSH 会话自动设置，无需（也无法）静态配置。
 
 -- ----------------------------------------------------------------------------
 -- 4) Leader 键 + 常用分屏/标签快捷键
