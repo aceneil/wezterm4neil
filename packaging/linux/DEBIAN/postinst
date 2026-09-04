@@ -1,0 +1,31 @@
+#!/bin/sh
+# ============================================================================
+# WezTerm4Neil .deb postinst
+# 按架构决策：postinst 只做纯文本指引，绝不擅自修改任何用户 home / shell。
+# ============================================================================
+set -e
+
+echo ""
+echo "============================================================"
+echo " WezTerm4Neil 已安装 (bundle)"
+echo "============================================================"
+echo ""
+
+if [ -f /etc/wezterm4neil/VERSIONS.txt ]; then
+    echo "本包捆绑版本（/etc/wezterm4neil/VERSIONS.txt）:"
+    sed -n '1,30p' /etc/wezterm4neil/VERSIONS.txt | sed 's/^/   /'
+    echo ""
+fi
+
+echo "接下来做什么（任选其一，以你的普通用户身份执行）："
+echo ""
+echo "  1) 拷贝配置到你的 ~/.config（最稳妥，升级后需重新拷贝）:"
+echo "       bash /etc/wezterm4neil/install.sh"
+echo ""
+echo "  2) 软链接配置到 ~/.config（推荐：/etc 下模板更新后即时生效）:"
+echo "       bash /etc/wezterm4neil/install.sh --link"
+echo ""
+echo "注意：本包替换了系统自带的 wezterm/fish/starship 命令"
+echo "（见 Depends/Conflicts/Replaces）。卸载本包:  sudo apt remove wezterm4neil"
+echo "============================================================"
+exit 0

@@ -1,0 +1,89 @@
+# ============================================================================
+# WezTerm4Neil · starship.toml
+# 自定义提示符模板 —— 官方配置参考: https://starship.rs/config/
+# 语法校验: python3 -c "import tomllib; tomllib.load(open('starship.toml','rb'))"
+# ============================================================================
+
+# 让编辑器获得补全与校验支持
+"$schema" = 'https://starship.rs/config-schema.json'
+
+# 提示符之间插入空行
+add_newline = true
+# 命令执行超时与目录扫描超时（毫秒）
+command_timeout = 500
+scan_timeout = 10
+
+# ----------------------------------------------------------------------------
+# 自定义 format（主提示符）
+# 说明：TOML 基本多行字符串中的"行尾反斜杠"表示拼接下一行、去掉换行，
+#       这样各模块就会紧凑地显示在同一行；$line_break 负责第二行换行。
+# ----------------------------------------------------------------------------
+format = """\
+$username\
+$hostname\
+$directory\
+$git_branch\
+$git_status\
+$python\
+$nodejs\
+$rust\
+$cmd_duration\
+$line_break\
+$character"""
+
+# 用户（默认 SSH/root 才显示；这里打开以便本地也显示，不想要可改 false）
+[username]
+show_always = true
+style_user = 'bold green'
+style_root = 'bold red'
+format = '[$user]($style) '
+
+# 主机名
+[hostname]
+ssh_only = false
+style = 'bold blue'
+format = 'on [$hostname]($style) '
+
+# 目录：只显示最后 3 层，进入 git 仓库时截断到仓库根
+[directory]
+truncation_length = 3
+truncate_to_repo = true
+style = 'cyan bold'
+format = 'in [$path]($style)[$read_only]($read_only_style) '
+
+# Git 分支 / 状态
+[git_branch]
+symbol = ''
+style = 'bold purple'
+format = 'on [$symbol$branch]($style) '
+
+[git_status]
+style = 'bold yellow'
+format = '([$all_status$ahead_behind]($style) )'
+
+# 语言环境探测（仅在对应项目目录中显示）
+[python]
+symbol = ' '
+style = 'bold green'
+format = 'via [$symbol$version]($style) '
+
+[nodejs]
+symbol = ''
+style = 'bold green'
+format = 'via [$symbol$version]($style) '
+
+[rust]
+symbol = ''
+style = 'bold red'
+format = 'via [$symbol$version]($style) '
+
+# 命令耗时：超过 2 秒才显示
+[cmd_duration]
+min_time = 2000
+format = 'took [$duration](bold yellow) '
+
+# 提示符箭头
+[character]
+success_symbol = '[❯](bold green)'
+error_symbol = '[❯](bold red)'
+vimcmd_symbol = '[❮](bold green)'

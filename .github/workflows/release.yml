@@ -1,0 +1,458 @@
+# ============================================================================
+# WezTerm4Neil · 每周自动构建 Release（GitHub Actions）
+#
+# 核心模式 =「随源更新全家桶」：
+#   每次运行时从上游官方 GitHub Release 拉取【当时最新】产物，
+#   与本仓库配置（wezterm.lua / config.fish / starship.toml）组合，
+#   产出开箱即用的安装包发布到 GitHub Release；每个安装包内附带 VERSIONS.txt。
+#
+# 触发（三条）:
+#   - schedule : 每周一 00:00 UTC（= 北京时间周一 08:00）
+#   - workflow_dispatch : 手动触发
+#   - push     : push 到 main
+#
+# Jobs:
+#   fetch-upstreams : 解析三个上游 releases/latest 并统一下载产物 + 许可证
+#                    生成 VERSIONS.txt（含本仓库 commit sha），上传 artifact
+#   preview         : VHS 渲染 assets/preview.gif，有变化才自动 commit（防空提交）
+#   build-linux     : 用上游产物 + packaging/linux/build-deb.sh 组装 .deb
+#   build-macos     : 组装 WezTerm.app + starship + fish pkg + 配置 → create-dmg
+#   build-windows   : 组装便携 WezTerm + starship.exe + 配置 + install.ps1 → zip
+#   release         : 汇总产物 + SHA256SUMS → GitHub Release（幂等）
+#
+# 注: preview 的 gif commit 会再次触发 push 运行；为防空转，fetch/build/release
+#     跳过 message 前缀为 "docs: update terminal preview GIF" 的 push。
+# ============================================================================
+name: WezTerm4Neil Weekly Release
+
+on:
+  schedule:
+    - cron: '0 0 * * 1'
+  workflow_dispatch:
+  push:
+    branches: [main]
+
+concurrency:
+  group: wezterm4neil-release
+  cancel-in-progress: false
+
+jobs:
+  # ---------------------------------------------------------------------------
+  # 0) 统一下游：解析 latest + 下载 + VERSIONS.txt
+  # ---------------------------------------------------------------------------
+  fetch-upstreams:
+    name: Fetch upstream releases
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.ver.outputs.version }}
+    env:
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - name: Compute version
+        id: ver
+        run: echo "version=$(date -u +%Y.%m.%d)" >> "$GITHUB_OUTPUT"
+
+      - name: Resolve & download upstream artifacts
+        run: |
+          set -euo pipefail
+          mkdir -p upstream licenses
+          AUTH=(); [[ -n "${GH_TOKEN:-}" ]] && AUTH=(-H "Authorization: Bearer $GH_TOKEN")
+
+          api() { curl -fsSL "${AUTH[@]}" "$1"; }
+
+          # ---- WezTerm (wezterm/wezterm) -----------------------------------
+          WEZ_JSON="$(api https://api.github.com/repos/wezterm/wezterm/releases/latest)"
+          WEZ_VER="$(jq -r .tag_name <<<"$WEZ_JSON")"
+          echo "wezterm latest tag: $WEZ_VER"
+          pick() { jq -r --arg pat "$1" '.assets[] | select(.name | test($pat)) | .browser_download_url' <<<"$WEZ_JSON" | head -n1; }
+          # 命名规律（2026-09 API 实测）: wezterm-<tag>.Ubuntu22.04.deb /
+          #   WezTerm-macos-<tag>.zip / WezTerm-windows-<tag>.zip
+          api "$(pick 'Ubuntu22\\.04\\.deb$')" -o upstream/wezterm-linux.deb
+          api "$(pick '^WezTerm-macos-.*\\.zip$')" -o upstream/wezterm-macos.zip
+          api "$(pick '^WezTerm-windows-.*\\.zip$')" -o upstream/wezterm-windows.zip
+
+          # ---- fish (fish-shell/fish-shell) ---------------------------------
+          FISH_JSON="$(api https://api.github.com/repos/fish-shell/fish-shell/releases/latest)"
+          FISH_VER="$(jq -r .tag_name <<<"$FISH_JSON")"
+          echo "fish latest tag: $FISH_VER"
+          # 官方 release 无 .deb；Linux 官方产物为自包含预编译单文件 tar.xz
+          # （fish-<ver>-linux-x86_64.tar.xz）。取不到则回退 runner 发行版 apt deb。
+          FISH_URL="$(jq -r '.assets[] | select(.name | test("linux-x86_64\\.tar\\.xz$")) | .browser_download_url' <<<"$FISH_JSON" | head -n1)"
+          if [[ -n "$FISH_URL" && "$FISH_URL" != "null" ]]; then
+            api "$FISH_URL" -o upstream/fish-linux.tar.xz
+            echo "fish linux: official tarball"
+          else
+            echo "fish linux: 官方无 x86_64 tarball，回退 apt-get download fish"
+            sudo apt-get update -qq
+            (cd upstream && apt-get download fish >/dev/null)
+            mv upstream/fish_*.deb upstream/fish-apt.deb
+          fi
+          # macOS: 官方 pkg（可选，缺失时 mac 侧用 brew 兜底）
+          FISH_PKG_URL="$(jq -r '.assets[] | select(.name | endswith(".pkg")) | .browser_download_url' <<<"$FISH_JSON" | head -n1)"
+          if [[ -n "$FISH_PKG_URL" && "$FISH_PKG_URL" != "null" ]]; then
+            api "$FISH_PKG_URL" -o upstream/fish-macos.pkg && echo "fish macos: official pkg"
+          else
+            echo "fish macos: 官方无 pkg（install.command 将回退 brew）"
+          fi
+          echo "fish windows: 官方不提供原生二进制（见 README/报告说明）"
+
+          # ---- Starship (starship/starship) --------------------------------
+          STAR_JSON="$(api https://api.github.com/repos/starship/starship/releases/latest)"
+          STAR_VER="$(jq -r .tag_name <<<"$STAR_JSON")"
+          echo "starship latest tag: $STAR_VER"
+          sasset() { jq -r --arg n "$1" '.assets[] | select(.name == $n) | .browser_download_url' <<<"$STAR_JSON" | head -n1; }
+          api "$(sasset starship-x86_64-unknown-linux-gnu.tar.gz)" -o upstream/starship-linux.tar.gz
+          api "$(sasset starship-x86_64-apple-darwin.tar.gz)" -o upstream/starship-macos.tar.gz
+          api "$(sasset starship-x86_64-pc-windows-msvc.zip)" -o upstream/starship-windows.zip
+
+          # ---- 上游许可证（MIT / GPL-2 / ISC，均可再分发） ------------------
+          curl -fsSL "${AUTH[@]}" "https://raw.githubusercontent.com/wezterm/wezterm/$WEZ_VER/LICENSE.md" -o licenses/wezterm-LICENSE || echo "warn: wezterm LICENSE.md 下载失败"
+          curl -fsSL "${AUTH[@]}" "https://raw.githubusercontent.com/fish-shell/fish-shell/$FISH_VER/COPYING" -o licenses/fish-COPYING || echo "warn: fish COPYING 下载失败"
+          curl -fsSL "${AUTH[@]}" "https://raw.githubusercontent.com/starship/starship/$STAR_VER/LICENSE"  -o licenses/starship-LICENSE  || echo "warn: starship LICENSE 下载失败"
+
+          # ---- VERSIONS.txt -------------------------------------------------
+          {
+            echo "# WezTerm4Neil 捆绑版本记录 (VERSIONS.txt)"
+            echo "# 模式: 随源更新全家桶 —— 每次 CI 从上游拉取当时最新官方产物"
+            echo "# 生成时间(UTC): $(date -u +%Y-%m-%dT%H:%M:%SZ)"
+            echo "# 本仓库 commit: $GITHUB_SHA"
+            echo ""
+            echo "[component:wezterm]"
+            echo "version=$WEZ_VER"
+            echo "source=https://github.com/wezterm/wezterm/releases/tag/$WEZ_VER"
+            echo "linux=wezterm-<ver>.Ubuntu22.04.deb"
+            echo "macos=WezTerm-macos-<ver>.zip"
+            echo "windows=WezTerm-windows-<ver>.zip"
+            echo ""
+            echo "[component:fish]"
+            echo "version=$FISH_VER"
+            echo "source=https://github.com/fish-shell/fish-shell/releases/tag/$FISH_VER"
+            if [[ -f upstream/fish-linux.tar.xz ]]; then
+              echo "linux=fish-<ver>-linux-x86_64.tar.xz (official self-contained binary)"
+            else
+              echo "linux=ubuntu native apt deb (official release 无 x86_64 tarball 时的回退)"
+            fi
+            if [[ -f upstream/fish-macos.pkg ]]; then
+              echo "macos=fish-<ver>.pkg (official)"
+            else
+              echo "macos=未捆绑官方 pkg（install.command 回退 brew install fish）"
+            fi
+            echo "windows=官方不提供原生二进制；config.fish 供 WSL 使用"
+            echo ""
+            echo "[component:starship]"
+            echo "version=$STAR_VER"
+            echo "source=https://github.com/starship/starship/releases/tag/$STAR_VER"
+            echo "linux=starship-x86_64-unknown-linux-gnu.tar.gz"
+            echo "macos=starship-x86_64-apple-darwin.tar.gz"
+            echo "windows=starship-x86_64-pc-windows-msvc.zip"
+          } > VERSIONS.txt
+
+          echo "---- upstream ----"; ls -la upstream
+          echo "---- licenses ----"; ls -la licenses
+          echo "---- VERSIONS.txt ----"; sed -n '1,40p' VERSIONS.txt
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: upstream
+          path: |
+            upstream
+            licenses
+            VERSIONS.txt
+          if-no-files-found: error
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: versions-txt
+          path: VERSIONS.txt
+          if-no-files-found: error
+
+  # ---------------------------------------------------------------------------
+  # 预览图：VHS 渲染 GIF 并自动 commit（内容变化才提交，防空提交/防循环）
+  # ---------------------------------------------------------------------------
+  preview:
+    name: Preview GIF (VHS)
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Install fish & starship
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y fish
+          curl -fsSL https://starship.rs/install.sh | sudo sh -s -- --yes
+          fish --version
+          starship --version
+
+      - name: Prepare demo HOME (真实使用仓库内的配置)
+        run: |
+          mkdir -p "$HOME/.config/fish"
+          cp config.fish "$HOME/.config/fish/config.fish"
+          cp starship.toml "$HOME/.config/starship.toml"
+          # 演示用 git 仓库（tape 里 cd ~/demo-repo 展示 fish+starship 的 git 模块）
+          git config --global user.name  "demo"
+          git config --global user.email "demo@example.com"
+          mkdir -p "$HOME/demo-repo"
+          cd "$HOME/demo-repo"
+          git init -b main
+          echo "# demo" > README.md
+          git add .
+          git commit -m init
+
+      - name: Record terminal preview
+        uses: charmbracelet/vhs-action@v2
+        with:
+          path: preview/terminal-demo.tape
+
+      - name: Locate GIF (Output 相对 cwd 与相对 tape 的两种语义都兜底)
+        run: |
+          set -euo pipefail
+          if [[ -f preview/assets/preview.gif ]]; then
+            mv preview/assets/preview.gif assets/preview.gif
+          fi
+          test -f assets/preview.gif && echo "gif OK: $(stat -c%s assets/preview.gif) bytes"
+
+      - name: Commit GIF back if changed
+        run: |
+          git config user.name  "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git checkout "$GITHUB_REF_NAME"
+          if ! git diff --quiet -- assets/preview.gif; then
+            git add assets/preview.gif
+            git commit -m "docs: update terminal preview GIF"
+            git push origin "HEAD:$GITHUB_REF_NAME"
+            echo "已提交新的 preview.gif"
+          else
+            echo "preview.gif 无变化，跳过提交"
+          fi
+
+  # ---------------------------------------------------------------------------
+  # Linux: 组装 .deb（捆绑 wezterm/fish/starship 二进制 + 配置 + VERSIONS.txt）
+  # ---------------------------------------------------------------------------
+  build-linux:
+    name: Build Linux .deb
+    runs-on: ubuntu-latest
+    needs: fetch-upstreams
+    if: "${{ !(github.event_name == 'push' && github.event.head_commit != null && startsWith(github.event.head_commit.message, 'docs: update terminal preview GIF')) }}"
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          name: upstream
+          path: ./dl
+
+      - name: Assemble .deb
+        env:
+          VER: ${{ needs.fetch-upstreams.outputs.version }}
+        run: |
+          set -euo pipefail
+          if [[ -f dl/upstream/fish-linux.tar.xz ]]; then
+            FISH_ARG=(--fish-tarball dl/upstream/fish-linux.tar.xz)
+          else
+            FISH_ARG=(--fish-deb dl/upstream/fish-apt.deb)
+          fi
+          bash packaging/linux/build-deb.sh \
+            --ver "$VER" \
+            --wezterm-deb dl/upstream/wezterm-linux.deb \
+            "${FISH_ARG[@]}" \
+            --starship-tar dl/upstream/starship-linux.tar.gz \
+            --config-dir "$GITHUB_WORKSPACE" \
+            --versions-txt dl/VERSIONS.txt \
+            --licenses-dir dl/licenses \
+            --out .
+
+      - name: Sanity check payload
+        run: |
+          set -euo pipefail
+          DEB="$(ls wezterm4neil_*.deb)"
+          echo "DEB=$DEB"
+          for bin in /usr/bin/wezterm /usr/bin/wezterm-gui /usr/bin/fish /usr/bin/starship /etc/wezterm4neil/VERSIONS.txt /etc/wezterm4neil/skel/wezterm.lua; do
+            dpkg-deb -c "$DEB" | grep -q "$bin" && echo "  ✔ $bin" || { echo "  ✘ 缺失 $bin"; exit 1; }
+          done
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: linux-deb
+          path: wezterm4neil_*.deb
+          if-no-files-found: error
+
+  # ---------------------------------------------------------------------------
+  # macOS: 组装 DMG（WezTerm.app + starship + fish pkg + install.command + 配置）
+  # ---------------------------------------------------------------------------
+  build-macos:
+    name: Build macOS DMG
+    runs-on: macos-latest
+    needs: fetch-upstreams
+    if: "${{ !(github.event_name == 'push' && github.event.head_commit != null && startsWith(github.event.head_commit.message, 'docs: update terminal preview GIF')) }}"
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          name: upstream
+          path: ./dl
+
+      - name: Install create-dmg
+        run: brew install create-dmg
+
+      - name: Assemble DMG staging
+        env:
+          VER: ${{ needs.fetch-upstreams.outputs.version }}
+        run: |
+          set -euo pipefail
+          echo "VER=$VER"
+          rm -rf dmg dmg-wez dmg-star
+          mkdir -p dmg
+          # WezTerm.app（官方 macos zip 内为 Universal .app bundle）
+          unzip -q dl/upstream/wezterm-macos.zip -d dmg-wez
+          APP="$(find dmg-wez -maxdepth 3 -type d -name WezTerm.app | head -n1)"
+          [[ -n "$APP" ]] || { echo "找不到 WezTerm.app"; exit 1; }
+          mv "$APP" dmg/WezTerm.app
+          # starship darwin 二进制
+          mkdir dmg-star
+          tar -xzf dl/upstream/starship-macos.tar.gz -C dmg-star
+          STAR="$(find dmg-star -maxdepth 2 -type f -name starship | head -n1)"
+          [[ -n "$STAR" ]] || { echo "找不到 starship"; exit 1; }
+          mv "$STAR" dmg/starship
+          chmod +x dmg/starship
+          # fish 官方 pkg（可选；缺失时 install.command 回退 brew）
+          if [[ -f dl/upstream/fish-macos.pkg ]]; then
+            cp dl/upstream/fish-macos.pkg dmg/
+          fi
+          # 配置 + 脚本 + 说明
+          cp wezterm.lua config.fish starship.toml install.sh dmg/
+          cp packaging/macos/install.command dmg/install.command
+          cp packaging/macos/README.txt dmg/README.txt
+          cp dl/VERSIONS.txt dmg/VERSIONS.txt
+          cp -r dl/licenses dmg/licenses
+          chmod +x dmg/install.command dmg/install.sh
+          ls -la dmg
+
+      - name: Create DMG
+        env:
+          VER: ${{ needs.fetch-upstreams.outputs.version }}
+        run: |
+          set -euo pipefail
+          create-dmg \
+            --volname "WezTerm4Neil" \
+            --window-size 700 440 \
+            --icon-size 96 \
+            --icon "WezTerm.app" 150 180 \
+            --app-drop-link 520 180 \
+            "wezterm4neil-${VER}-macos.dmg" \
+            "dmg/"
+          ls -la "wezterm4neil-${VER}-macos.dmg"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: macos-dmg
+          path: wezterm4neil-*-macos.dmg
+          if-no-files-found: error
+
+  # ---------------------------------------------------------------------------
+  # Windows: 便携 WezTerm + starship.exe + install.ps1 + 配置 → zip
+  # ---------------------------------------------------------------------------
+  build-windows:
+    name: Build Windows ZIP + PS1
+    runs-on: windows-latest
+    needs: fetch-upstreams
+    if: "${{ !(github.event_name == 'push' && github.event.head_commit != null && startsWith(github.event.head_commit.message, 'docs: update terminal preview GIF')) }}"
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          name: upstream
+          path: ./dl
+
+      - name: Assemble zip & standalone ps1
+        env:
+          VER: ${{ needs.fetch-upstreams.outputs.version }}
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          Write-Host "VER=$env:VER"
+          New-Item -ItemType Directory -Path zst -Force | Out-Null
+
+          # 便携 WezTerm（官方 windows zip）→ zst\WezTerm
+          Expand-Archive -Path dl/upstream/wezterm-windows.zip -DestinationPath zst\WezTerm -Force
+          $wezGui = Get-ChildItem -Path zst\WezTerm -Recurse -Filter wezterm-gui.exe | Select-Object -First 1
+          if (-not $wezGui) { throw "捆绑中找不到 wezterm-gui.exe" }
+          Write-Host "wezterm-gui.exe @ $($wezGui.FullName)"
+
+          # starship.exe → zst\starship.exe
+          Expand-Archive -Path dl/upstream/starship-windows.zip -DestinationPath zst\starship -Force
+          $star = Get-ChildItem -Path zst\starship -Recurse -Filter starship.exe | Select-Object -First 1
+          if (-not $star) { throw "捆绑中找不到 starship.exe" }
+          Move-Item $star.FullName zst\starship.exe -Force
+          Remove-Item zst\starship -Recurse -Force
+
+          # 配置 / 脚本 / 说明 / 版本 / 许可证
+          Copy-Item wezterm.lua, config.fish, starship.toml, install.ps1 zst\
+          Copy-Item packaging/windows/README.txt zst\README.txt
+          Copy-Item dl/VERSIONS.txt zst\VERSIONS.txt
+          Copy-Item dl/licenses zst\licenses -Recurse
+
+          # 打 zip
+          $zipName = "wezterm4neil-$env:VER-windows"
+          Compress-Archive -Path "zst\*" -DestinationPath "$zipName.zip" -Force
+          Copy-Item install.ps1 "$zipName-install.ps1"
+          Get-ChildItem -Filter "wezterm4neil-*" | Select-Object Name, Length
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: windows-dist
+          path: |
+            wezterm4neil-*-windows.zip
+            wezterm4neil-*-windows-install.ps1
+          if-no-files-found: error
+
+  # ---------------------------------------------------------------------------
+  # Release: 汇总三平台产物 + VERSIONS.txt + SHA256SUMS → GitHub Release
+  # ---------------------------------------------------------------------------
+  release:
+    name: Publish GitHub Release
+    runs-on: ubuntu-latest
+    needs: [fetch-upstreams, build-linux, build-macos, build-windows]
+    permissions:
+      contents: write
+    if: "${{ !(github.event_name == 'push' && github.event.head_commit != null && startsWith(github.event.head_commit.message, 'docs: update terminal preview GIF')) }}"
+    steps:
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+        with:
+          pattern: |
+            linux-deb
+            macos-dmg
+            windows-dist
+            versions-txt
+          path: dist
+          merge-multiple: true
+
+      - name: Create GitHub Release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          VER: ${{ needs.fetch-upstreams.outputs.version }}
+        run: |
+          set -euo pipefail
+          cd dist
+          TAG="v${VER}"
+          sha256sum wezterm4neil-* > SHA256SUMS.txt
+          ls -la
+          # 幂等：同一天重复触发时不重建已存在的 Release，仅补传产物
+          if gh release view "$TAG" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            echo "Release $TAG 已存在，仅补传产物"
+            gh release upload "$TAG" --repo "$GITHUB_REPOSITORY" --clobber \
+              wezterm4neil-* VERSIONS.txt SHA256SUMS.txt
+          else
+            gh release create "$TAG" \
+              --repo "$GITHUB_REPOSITORY" \
+              --title "WezTerm4Neil ${VER}" \
+              --notes "随源更新全家桶：WezTerm + Fish + Starship（从上游官方 Release 拉取当时最新）。
+              - macOS : 标准 DMG（WezTerm.app + starship + fish + 一键 install.command）
+              - Linux : 标准 DEB（捆绑三软件二进制，安装后 bash /etc/wezterm4neil/install.sh 激活配置）
+              - Windows: 便携 ZIP + 一键 install.ps1（离线模式；fish 走 WSL 说明见 README）
+              每个安装包内附 VERSIONS.txt（组件版本/来源/commit）。SHA256SUMS.txt 为全部产物校验值。" \
+              wezterm4neil-* VERSIONS.txt SHA256SUMS.txt
+          fi

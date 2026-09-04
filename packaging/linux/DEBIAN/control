@@ -1,0 +1,24 @@
+Package: wezterm4neil
+Version: 0.0.0
+Section: shells
+Priority: optional
+Architecture: amd64
+Depends: libc6 (>= 2.35), libfontconfig1 (>= 2.12.6), libgcc-s1 (>= 4.2), libssl3 (>= 3.0.0~~alpha1), libwayland-client0 (>= 1.11.0), libwayland-egl1 (>= 1.15.0), libx11-6, libx11-xcb1 (>= 2:1.7.5), libxcb-image0 (>= 0.2.1), libxcb-util1 (>= 0.4.0), libxcb1 (>= 1.11.1), libxkbcommon-x11-0 (>= 0.5.0), libxkbcommon0 (>= 0.6.1), zlib1g (>= 1:1.1.4)
+Conflicts: wezterm, fish, starship
+Replaces: wezterm, fish, starship
+Provides: wezterm, fish, starship
+Maintainer: aceneil <wezterm4neil@users.noreply.github.com>
+Homepage: https://github.com/aceneil/wezterm4neil
+Description: 开箱即用的 WezTerm + Fish + Starship 全家桶（随源每周自动打包）
+ 本包捆绑当周上游官方 Release 的 WezTerm / Fish / Starship 二进制，
+ 并附带 WezTerm4Neil 配置文件：
+   /usr/bin/wezterm*, fish, starship  —— 捆绑二进制
+   /etc/wezterm4neil/skel/            —— 配置文件模板
+   /etc/wezterm4neil/VERSIONS.txt     —— 捆绑组件版本/来源记录
+ Depends 由 packaging/linux/build-deb.sh 在打包时按上游 deb 实际依赖并集重写，
+ 本文件中的列表是静态兜底值（取自官方 wezterm Ubuntu22.04 deb 的运行库依赖）。
+ 安装后以普通用户运行以下命令即可把配置激活到 ~/.config：
+   bash /etc/wezterm4neil/install.sh          # 拷贝
+   bash /etc/wezterm4neil/install.sh --link   # 软链接
+ 注意：本包 Conflicts/Replaces 系统自带的 wezterm/fish/starship，
+ 安装本包会替换这些命令（卸载本包后请自行重装官方包）。
