@@ -12,6 +12,7 @@
 Unicode true
 !include "LogicLib.nsh"
 RequestExecutionLevel user        ; 不需要管理员（用户级安装）
+SetShellVarContext current        ; 快捷方式/卸载注册走当前用户（无需管理员）
 SetCompressor /SOLID lzma
 
 Name "WezTerm4Neil ${APP_VERSION}"
@@ -38,20 +39,39 @@ Section "Install"
     DetailPrint "install.ps1 返回非零($0)，配置部署可能未完成；可手动运行: powershell -ExecutionPolicy Bypass -File '$INSTDIR\install.ps1'"
   ${EndIf}
 
-  ; 卸载器
+  ; 卸载器 + 系统“添加或删除程序”入口 + 快捷方式
   WriteUninstaller "$INSTDIR\Uninstall.exe"
   WriteRegStr HKCU "Software\WezTerm4Neil" "InstallDir" "$INSTDIR"
+  WriteRegStr HKCU "Software\Microsoft\Windows\CurrentVersion\Uninstall\WezTerm4Neil" "DisplayName" "WezTerm4Neil ${APP_VERSION}"
+  WriteRegStr HKCU "Software\Microsoft\Windows\CurrentVersion\Uninstall\WezTerm4Neil" "DisplayIcon" "$INSTDIR\WezTerm\wezterm-gui.exe"
+  WriteRegStr HKCU "Software\Microsoft\Windows\CurrentVersion\Uninstall\WezTerm4Neil" "UninstallString" "$\"$INSTDIR\Uninstall.exe$\""
+  WriteRegStr HKCU "Software\Microsoft\Windows\CurrentVersion\Uninstall\WezTerm4Neil" "Publisher" "aceneil"
+  WriteRegStr HKCU "Software\Microsoft\Windows\CurrentVersion\Uninstall\WezTerm4Neil" "DisplayVersion" "${APP_VERSION}"
+  WriteRegDWORD HKCU "Software\Microsoft\Windows\CurrentVersion\Uninstall\WezTerm4Neil" "NoModify" 1
+  WriteRegDWORD HKCU "Software\Microsoft\Windows\CurrentVersion\Uninstall\WezTerm4Neil" "NoRepair" 1
+
+  ; 开始菜单 + 桌面快捷方式（指向随包 WezTerm GUI）
+  CreateDirectory "$SMPROGRAMS\WezTerm4Neil"
+  CreateShortCut "$SMPROGRAMS\WezTerm4Neil\WezTerm4Neil.lnk" "$INSTDIR\WezTerm\wezterm-gui.exe" "" "$INSTDIR\WezTerm\wezterm-gui.exe"
+  CreateShortCut "$DESKTOP\WezTerm4Neil.lnk" "$INSTDIR\WezTerm\wezterm-gui.exe" "" "$INSTDIR\WezTerm\wezterm-gui.exe"
 
   DetailPrint "安装完成：WezTerm4Neil ${APP_VERSION}"
   DetailPrint "安装目录: $INSTDIR"
-  DetailPrint "配置已写入 %USERPROFILE%\.config（wezterm / fish / starship）"
+  DetailPrint "已创建开始菜单与桌面快捷方式；可在『设置→应用→已安装的应用』中卸载"
+  DetailPrint "配置已写入 %USERPROFILE%\.config（wezterm / starship）+ Nu 自动加载"
 SectionEnd
 
 ; ---- 卸载区段 ----------------------------------------------------------------
 Section "Uninstall"
+  ; 快捷方式与注册表清理
+  Delete "$DESKTOP\WezTerm4Neil.lnk"
+  Delete "$SMPROGRAMS\WezTerm4Neil\WezTerm4Neil.lnk"
+  RMDir "$SMPROGRAMS\WezTerm4Neil"
+  DeleteRegKey HKCU "Software\Microsoft\Windows\CurrentVersion\Uninstall\WezTerm4Neil"
+
   Delete "$INSTDIR\Uninstall.exe"
   RMDir /r "$INSTDIR"
   DeleteRegKey HKCU "Software\WezTerm4Neil"
-  ; 注意：不删除 ~/.config 下的用户配置（保留用户数据）
+  ; 注意：不删除 ~/.config 与 Nu autoload 下的用户配置（保留用户数据）
   DetailPrint "已卸载程序；如需删除配置请手动删除 %USERPROFILE%\.config\wezterm 等目录"
 SectionEnd

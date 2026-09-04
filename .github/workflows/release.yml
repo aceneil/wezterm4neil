@@ -470,7 +470,13 @@ jobs:
           Expand-Archive -Path dl/upstream/wezterm-windows.zip -DestinationPath zst\WezTerm -Force
           $wezGui = Get-ChildItem -Path zst\WezTerm -Recurse -Filter wezterm-gui.exe | Select-Object -First 1
           if (-not $wezGui) { throw "捆绑中找不到 wezterm-gui.exe" }
-          Write-Host "wezterm-gui.exe @ $($wezGui.FullName)"
+          # 归一化：确保固定为 zst\WezTerm\wezterm-gui.exe（NSIS 快捷方式/图标路径才能写死）
+          $wezRoot = (Join-Path (Get-Location) 'zst\WezTerm')
+          if ($wezGui.DirectoryName -ne $wezRoot) {
+              Get-ChildItem -Path $wezGui.DirectoryName | Move-Item -Destination $wezRoot -Force
+              Remove-Item $wezGui.DirectoryName -Recurse -Force
+          }
+          Write-Host "wezterm-gui.exe @ $wezRoot\wezterm-gui.exe"
 
           # starship.exe → zst\starship.exe
           Expand-Archive -Path dl/upstream/starship-windows.zip -DestinationPath zst\starship -Force
