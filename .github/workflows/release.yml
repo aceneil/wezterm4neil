@@ -466,24 +466,20 @@ jobs:
           Write-Host "VER=$env:VER"
           New-Item -ItemType Directory -Path zst -Force | Out-Null
 
-          # 便携 WezTerm（官方 windows zip）→ zst\WezTerm
-          Expand-Archive -Path dl/upstream/wezterm-windows.zip -DestinationPath zst\WezTerm -Force
-          $wezGui = Get-ChildItem -Path zst\WezTerm -Recurse -Filter wezterm-gui.exe | Select-Object -First 1
+          # WezTerm 作为最外层主程序：官方包内容直接拍平到 zst\（wezterm-gui.exe 在根）
+          Expand-Archive -Path dl/upstream/wezterm-windows.zip -DestinationPath zst\wezterm-tmp -Force
+          $wezGui = Get-ChildItem -Path zst\wezterm-tmp -Recurse -Filter wezterm-gui.exe | Select-Object -First 1
           if (-not $wezGui) { throw "捆绑中找不到 wezterm-gui.exe" }
-          # 归一化：确保固定为 zst\WezTerm\wezterm-gui.exe（NSIS 快捷方式/图标路径才能写死）
-          $wezRoot = (Join-Path (Get-Location) 'zst\WezTerm')
-          if ($wezGui.DirectoryName -ne $wezRoot) {
-              Get-ChildItem -Path $wezGui.DirectoryName | Move-Item -Destination $wezRoot -Force
-              Remove-Item $wezGui.DirectoryName -Recurse -Force
-          }
-          Write-Host "wezterm-gui.exe @ $wezRoot\wezterm-gui.exe"
+          Get-ChildItem -Path $wezGui.DirectoryName | Move-Item -Destination zst\ -Force
+          Remove-Item zst\wezterm-tmp -Recurse -Force
+          Write-Host "wezterm-gui.exe @ zst\wezterm-gui.exe"
 
-          # starship.exe → zst\starship.exe
+          # starship（组件目录）→ zst\starship\starship.exe
           Expand-Archive -Path dl/upstream/starship-windows.zip -DestinationPath zst\starship -Force
           $star = Get-ChildItem -Path zst\starship -Recurse -Filter starship.exe | Select-Object -First 1
           if (-not $star) { throw "捆绑中找不到 starship.exe" }
-          Move-Item $star.FullName zst\starship.exe -Force
-          Remove-Item zst\starship -Recurse -Force
+          Move-Item $star.FullName zst\starship\starship.exe -Force
+          Get-ChildItem zst\starship | Where-Object Name -ne 'starship.exe' | Remove-Item -Recurse -Force
 
           # Nushell（Windows 原生默认 shell）→ zst\nu\nu.exe
           Expand-Archive -Path dl/upstream/nushell-windows.zip -DestinationPath zst\nu -Force

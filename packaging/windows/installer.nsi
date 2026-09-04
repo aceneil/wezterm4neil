@@ -32,12 +32,7 @@ Section "Install"
   ; 递归打入整个 payload
   File /r "${SOURCE_DIR}\*.*"
 
-  ; 标记 NSIS 安装（install.ps1 借此识别“Root 即最终安装目录”，从而支持自定义安装路径）
-  FileOpen $0 "$INSTDIR\.nsis-installed" w
-  FileWrite $0 "NSIS"
-  FileClose $0
-
-  ; 部署：注册用户 PATH + 写入 ~/.config / Nu autoload（install.ps1 检测到标记后不再复制程序）
+  ; 部署：注册用户 PATH + 写入 ~/.config / Nu autoload（程序本体已就地：WezTerm 为最外层）
   nsExec::ExecToStack 'powershell.exe -NoProfile -ExecutionPolicy Bypass -File "$INSTDIR\install.ps1"'
   Pop $0
   ${If} $0 != "0"
@@ -48,17 +43,17 @@ Section "Install"
   WriteUninstaller "$INSTDIR\Uninstall.exe"
   WriteRegStr HKCU "Software\WezTerm4Neil" "InstallDir" "$INSTDIR"
   WriteRegStr HKCU "Software\Microsoft\Windows\CurrentVersion\Uninstall\WezTerm4Neil" "DisplayName" "WezTerm4Neil ${APP_VERSION}"
-  WriteRegStr HKCU "Software\Microsoft\Windows\CurrentVersion\Uninstall\WezTerm4Neil" "DisplayIcon" "$INSTDIR\WezTerm\wezterm-gui.exe"
+  WriteRegStr HKCU "Software\Microsoft\Windows\CurrentVersion\Uninstall\WezTerm4Neil" "DisplayIcon" "$INSTDIR\wezterm-gui.exe"
   WriteRegStr HKCU "Software\Microsoft\Windows\CurrentVersion\Uninstall\WezTerm4Neil" "UninstallString" "$\"$INSTDIR\Uninstall.exe$\""
   WriteRegStr HKCU "Software\Microsoft\Windows\CurrentVersion\Uninstall\WezTerm4Neil" "Publisher" "aceneil"
   WriteRegStr HKCU "Software\Microsoft\Windows\CurrentVersion\Uninstall\WezTerm4Neil" "DisplayVersion" "${APP_VERSION}"
   WriteRegDWORD HKCU "Software\Microsoft\Windows\CurrentVersion\Uninstall\WezTerm4Neil" "NoModify" 1
   WriteRegDWORD HKCU "Software\Microsoft\Windows\CurrentVersion\Uninstall\WezTerm4Neil" "NoRepair" 1
 
-  ; 开始菜单 + 桌面快捷方式（指向随包 WezTerm GUI）
+  ; 开始菜单 + 桌面快捷方式（指向最外层 WezTerm GUI）
   CreateDirectory "$SMPROGRAMS\WezTerm4Neil"
-  CreateShortCut "$SMPROGRAMS\WezTerm4Neil\WezTerm4Neil.lnk" "$INSTDIR\WezTerm\wezterm-gui.exe" "" "$INSTDIR\WezTerm\wezterm-gui.exe"
-  CreateShortCut "$DESKTOP\WezTerm4Neil.lnk" "$INSTDIR\WezTerm\wezterm-gui.exe" "" "$INSTDIR\WezTerm\wezterm-gui.exe"
+  CreateShortCut "$SMPROGRAMS\WezTerm4Neil\WezTerm4Neil.lnk" "$INSTDIR\wezterm-gui.exe" "" "$INSTDIR\wezterm-gui.exe"
+  CreateShortCut "$DESKTOP\WezTerm4Neil.lnk" "$INSTDIR\wezterm-gui.exe" "" "$INSTDIR\wezterm-gui.exe"
 
   DetailPrint "安装完成：WezTerm4Neil ${APP_VERSION}"
   DetailPrint "安装目录: $INSTDIR"

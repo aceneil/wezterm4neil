@@ -1,18 +1,23 @@
 # ============================================================================
 # WezTerm4Neil · install.ps1 (Windows)
 #
-# 离线捆绑安装（默认，推荐）——在 .exe 安装目录 / zip 解压目录内运行。
-#   检测到同目录捆绑产物（WezTerm\ + starship.exe + nu\）后：
-#        - WezTerm 便携版复制到 %LOCALAPPDATA%\Programs\wezterm4neil\WezTerm
-#        - starship.exe 复制到 %LOCALAPPDATA%\Programs\wezterm4neil\
-#        - 注册用户级 PATH（安装目录）
-#        - 配置文件写入 ~/.config（wezterm / starship）
-#        - Nushell 原生 shell：nu\ 复制到 %LOCALAPPDATA%\Programs\wezterm4neil\nu
-#          （WezTerm 默认启动 Nu；Nu 自动加载目录写入 starship 提示符与别名）
-#   ② 在线回退——脱离捆绑产物单独运行本脚本（例如直接下载 install.ps1）：
-#        winget install wez.wezterm / Starship.Starship 后，仅部署配置。
+# 目录布局（WezTerm 作为最外层主程序，直接位于产品根）：
+#   %LOCALAPPDATA%\Programs\wezterm4neil\
+#     ├─ wezterm-gui.exe / wezterm.exe / ...   ← WezTerm 本体（最外层主程序）
+#     ├─ nu\nu.exe                             ← 组件① Nushell（原生默认 shell）
+#     ├─ starship\starship.exe                 ← 组件② Starship 提示符
+#     ├─ wezterm.lua / starship.toml / nushell.nu / install.ps1 / VERSIONS.txt
+#     ├─ licenses\
+#     └─ Uninstall.exe
 #
-# 用法（在 zip 解压目录中执行）:
+# 本脚本在「已展开的安装目录内」运行（NSIS 安装器目录 / zip 解压目录均可），
+# 它不会复制程序本体——本体已就地（WezTerm 即最外层）；脚本只负责：
+#   ① 注册用户级 PATH（产品根 / nu / starship）
+#   ② 把配置写入 ~/.config（wezterm / starship）
+#   ③ 写 Nu 自动加载（starship 提示符 + 别名）并记录实际 nu.exe 路径
+#   ④ （可选）在线回退：脱离捆绑时用 winget 安装 wezterm/starship
+#
+# 用法（在安装目录中执行）:
 #   powershell -ExecutionPolicy Bypass -File .\install.ps1            # 默认拷贝
 #   powershell -ExecutionPolicy Bypass -File .\install.ps1 -Link      # 软链接
 #   powershell -ExecutionPolicy Bypass -File .\install.ps1 -Force     # 跳过幂等判断强制重装
@@ -20,8 +25,8 @@
 # 安装目标（%USERPROFILE% = C:\Users\<你>）:
 #   wezterm.lua   -> %USERPROFILE%\.config\wezterm\wezterm.lua
 #   starship.toml -> %USERPROFILE%\.config\starship.toml
-#   Nushell       -> %LOCALAPPDATA%\Programs\wezterm4neil\nu\nu.exe
 #   Nu 提示符/别名 -> %APPDATA%\nushell\vendor\autoload\{starship.nu, wezterm4neil.nu}
+#   Nu 实际路径    -> %USERPROFILE%\.config\wezterm4neil\nu-path.txt
 #
 # 说明: 创建符号链接需要「开发者模式」或管理员身份；失败时自动回退为拷贝。
 # 官方出处: wezterm winget id = wez.wezterm (wezterm.org/install/windows.html)
@@ -35,13 +40,12 @@ $ErrorActionPreference = 'Stop'
 
 $Root       = Split-Path -Parent $MyInvocation.MyCommand.Path
 $ConfigRoot = Join-Path $env:USERPROFILE '.config'
-$AppDir     = Join-Path $env:LOCALAPPDATA 'Programs\wezterm4neil'
+$AppDir     = $Root                     # 产品根即安装目录（WezTerm 最外层）
 
 # 捆绑检测
-$BundledWezTerm  = Test-Path (Join-Path $Root 'WezTerm')
-$BundledStarship = Test-Path (Join-Path $Root 'starship.exe')
+$BundledWezTerm  = Test-Path (Join-Path $Root 'wezterm-gui.exe')
 $BundledNu       = Test-Path (Join-Path $Root 'nu\nu.exe')
-$NsisMode        = Test-Path (Join-Path $Root '.nsis-installed')   # NSIS 安装器标记：Root 即最终安装目录
+$BundledStarship = Test-Path (Join-Path $Root 'starship\starship.exe') -or (Test-Path (Join-Path $Root 'starship.exe'))
 $Bundled         = $BundledWezTerm -and $BundledStarship
 
 function Write-Log  { Write-Host "[wezterm4neil] $args" -ForegroundColor Green }
@@ -63,7 +67,7 @@ function Add-ToUserPath([string]$dir) {
 }
 
 # ---- 配置文件部署 ------------------------------------------------------------
-# Windows 只部署 wezterm 与 starship 配置；shell 用随包 Nushell（见下文 Nu 部署）
+# Windows 只部署 wezterm 与 starship 配置；shell 用随包 Nushell（见 Nu 部署节）
 $Items = @(
     @{ Src = 'wezterm.lua';   Dir = 'wezterm'; File = 'wezterm.lua' },
     @{ Src = 'starship.toml'; Dir = '.';        File = 'starship.toml' }
@@ -121,13 +125,14 @@ function Install-NuAutoload {
         Copy-Item $aliasSrc (Join-Path $nuAuto 'wezterm4neil.nu') -Force
         Write-Log "Nu 别名已写入: vendor\autoload\wezterm4neil.nu"
     }
-    $star = Join-Path $RootDir 'starship.exe'
+    $star = Join-Path $RootDir 'starship\starship.exe'
+    if (-not (Test-Path $star)) { $star = Join-Path $RootDir 'starship.exe' }
     if (Test-Path $star) {
         $initLines = & $star init nu
         $initLines | Set-Content -Path (Join-Path $nuAuto 'starship.nu') -Encoding utf8
         Write-Log "Nu starship 提示符已写入: vendor\autoload\starship.nu"
     }
-    # 记录实际 nu.exe 路径（供 wezterm.lua 在自定义安装路径时仍能找到 Nu 作为默认 shell）
+    # 记录实际 nu.exe 路径（供 wezterm.lua 作为默认 shell；自定义安装目录同样适用）
     if ($NuExePath -and (Test-Path $NuExePath)) {
         $markerDir = Join-Path $ConfigRoot 'wezterm4neil'
         New-Item -ItemType Directory -Path $markerDir -Force | Out-Null
@@ -140,52 +145,21 @@ function Install-NuAutoload {
 # ============================ 主流程 ==========================================
 Write-Host ""
 Write-Log "WezTerm4Neil installer (Windows)"
-Write-Log "模式: $(if ($Bundled) { '捆绑离线（WezTerm + Starship 已内置）' } else { '在线回退（winget 安装程序后仅部署配置）' })"
-Write-Log "脚本目录: $Root"
+Write-Log "模式: $(if ($Bundled) { '捆绑离线（WezTerm + Nushell + Starship 已内置，WezTerm 为最外层）' } else { '在线回退（winget 安装程序后仅部署配置）' })"
+Write-Log "安装目录: $Root"
 
 if ($Bundled) {
-    # ---- ① 捆绑离线安装 -----------------------------------------------------
-    # 安装基准目录：NSIS 场景（含用户自定义路径）→ 程序已就地于 $Root=$INSTDIR；
-    # 手动解压 zip 场景 → 复制到默认 %LOCALAPPDATA%\Programs\wezterm4neil
-    New-Item -ItemType Directory -Path $AppDir -Force | Out-Null
-    $InstallBase = if ($NsisMode) { $Root } else { $AppDir }
+    # ---- ① 捆绑离线：程序本体已就地，只注册 PATH ---------------------------
+    Add-ToUserPath $Root                       # WezTerm 本体（wezterm-gui.exe 在根）
+    if ($BundledNu) { Add-ToUserPath (Join-Path $Root 'nu') }
+    if (Test-Path (Join-Path $Root 'starship\starship.exe')) { Add-ToUserPath (Join-Path $Root 'starship') }
 
-    $dstWez  = Join-Path $InstallBase 'WezTerm'
-    $dstStar = Join-Path $InstallBase 'starship.exe'
-    if (-not $NsisMode) {
-        if (Test-Path $dstWez) {
-            if ($Force) { Remove-Item $dstWez -Recurse -Force }
-            else { Write-Warn "$dstWez 已存在，将合并/覆盖同名文件" }
-        }
-        Write-Log "复制 WezTerm 便携版 -> $dstWez"
-        Copy-Item (Join-Path $Root 'WezTerm') $dstWez -Recurse -Force
-
-        Write-Log "复制 starship.exe -> $dstStar"
-        Copy-Item (Join-Path $Root 'starship.exe') $dstStar -Force
-    } else {
-        Write-Log "NSIS 安装目录: $InstallBase（程序已就地，跳过复制）"
-    }
-    Add-ToUserPath (Join-Path $InstallBase 'WezTerm')
-    Add-ToUserPath $InstallBase
-
-    Write-Log "已安装: $dstWez"
-    Write-Log "已安装: $dstStar"
-
-    # ---- Nushell（Windows 原生默认 shell）→ <InstallBase>\nu\nu.exe ------
-    $dstNuDir = Join-Path $InstallBase 'nu'
-    $NuActual = ''
-    if ($BundledNu) {
-        if (-not $NsisMode -and -not (Test-Path (Join-Path $dstNuDir 'nu.exe'))) {
-            Write-Log "复制 Nushell -> $dstNuDir"
-            Copy-Item (Join-Path $Root 'nu') $dstNuDir -Recurse -Force
-        }
-        Add-ToUserPath $dstNuDir
-        $NuActual = Join-Path $dstNuDir 'nu.exe'
-        Write-Log "已安装: $NuActual"
-    }
+    $NuActual = if ($BundledNu) { Join-Path $Root 'nu\nu.exe' } else { '' }
+    Write-Log "WezTerm 本体: $Root\wezterm-gui.exe"
+    if ($BundledNu) { Write-Log "Nushell: $NuActual" }
 } else {
     # ---- ② 在线回退 ---------------------------------------------------------
-    Write-Warn "未检测到捆绑产物（WezTerm\ 与 starship.exe），切换到 winget 安装："
+    Write-Warn "未检测到捆绑产物（wezterm-gui.exe / starship），切换到 winget 安装："
     $wg = Get-Command winget -ErrorAction SilentlyContinue
     if (-not $wg) {
         Write-Warn "未找到 winget，请手动安装：https://wezterm.org / https://starship.rs"
@@ -223,7 +197,7 @@ if (Test-Path (Join-Path $Root 'VERSIONS.txt')) {
 
 Write-Host ""
 Write-Log "完成！生效方式:"
-Write-Log "  · WezTerm —— 从开始菜单/新窗口启动 WezTerm（便携版无需管理员）"
+Write-Log "  · WezTerm —— 双击桌面/开始菜单的 WezTerm4Neil 图标（或运行 $Root\wezterm-gui.exe）"
 Write-Log "  · Shell —— WezTerm 默认打开 Nushell + Starship（随包内置，开箱即用）"
 Write-Log "  · 在 Nu 里试试: ll / gs / gcm 'hi' （别名来自 Nu 自动加载目录）"
 Write-Host ""
