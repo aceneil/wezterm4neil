@@ -10,6 +10,7 @@
 ; ============================================================================
 
 Unicode true
+!include "LogicLib.nsh"
 RequestExecutionLevel user        ; 不需要管理员（用户级安装）
 SetCompressor /SOLID lzma
 
