@@ -61,14 +61,14 @@ end
 -- 2) 字体与基础外观（跨平台：优先用户已装字体，逐级回退保证 CJK 显示）
 -- ----------------------------------------------------------------------------
 config.font = wezterm.font_with_fallback({
-  'CaskaydiaCove Nerd Font',   -- weterm3 参考首选（未安装自动回退）
-  'JetBrains Mono',
-  'Fira Code',
-  'Menlo',                 -- macOS 内置
-  'Consolas',              -- Windows 内置
-  'Noto Sans Mono CJK SC', -- Linux 常见中文字体
-  'PingFang SC',           -- macOS 中文
-  'Microsoft YaHei',       -- Windows 中文
+  'Cascadia Mono',           -- Windows 11 自带
+  'Consolas',                -- Windows 内置
+  'Menlo',                   -- macOS 内置
+  'Monaco',                  -- macOS 内置
+  'Ubuntu Mono',             -- Linux 常见
+  'Noto Sans Mono CJK SC',   -- Linux 常见中文字体
+  'PingFang SC',             -- macOS 中文
+  'Microsoft YaHei',         -- Windows 中文
 })
 config.font_size = 13.0
 config.line_height = 1.1
@@ -164,25 +164,9 @@ if IS_WINDOWS then
 end
 
 -- ----------------------------------------------------------------------------
--- 6) 启动时窗口居中（Byxs20/terminal_config 参考）；无 GUI/异常环境自动跳过
+-- 6) 说明：窗口居中/开机自启等交给系统与用户偏好处理
+--    不再使用 gui-startup + spawn_window —— 该写法在部分 WezTerm 版本会
+--    额外多开一个窗口（导致"一个报错页 + 一个 nu 窗口"的双窗现象）。
 -- ----------------------------------------------------------------------------
-if wezterm.gui then
-  wezterm.on('gui-startup', function(cmd)
-    local screens = wezterm.gui.screens()
-    local screen = screens and screens.active
-    if not screen then return end
-    local width, height = screen.width * 0.5, screen.height * 0.5
-    local _, _, window = wezterm.mux.spawn_window(cmd or {
-      position = {
-        x = (screen.width - width) / 2,
-        y = (screen.height - height) / 2,
-        origin = { Named = screen.name },
-      },
-    })
-    if window and window:gui_window() then
-      window:gui_window():set_inner_size(width, height)
-    end
-  end)
-end
 
 return config
