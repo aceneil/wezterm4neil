@@ -2,7 +2,7 @@
 
 # 🖥️ WezTerm4Neil
 
-**开箱即用的跨平台终端环境：WezTerm + Fish + Starship 一键安装包**
+**开箱即用的跨平台终端环境：WezTerm + Fish / Nushell(Win) + Starship 一键安装包**
 
 适用于 macOS · Windows · Linux，每周自动更新，拿走就能用。
 
