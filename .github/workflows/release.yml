@@ -541,24 +541,20 @@ jobs:
           find . -mindepth 2 -type f -exec mv -n {} . \;
           ls -la
           TAG="v${VER}"
-          # 幂等：同一天重复触发时保留既有 Release，先清理旧版残留资产再补传。
-          # 保留规则：仅 *.deb / *.dmg / *.exe 与 GitHub 自动生成的 "Source code (zip|tar.gz)"。
+          # 每次运行都重建 Release：保证页面「发布时间」= 最新一次构建（同 tag 删除重建），
+          # 资产天然只剩 deb/dmg/exe；源码包由 GitHub 自动附赠。
           if gh release view "$TAG" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
-            echo "Release $TAG 已存在：清理旧资产（仅保留 deb/dmg/exe 与 Source code）"
-            for old in $(gh release view "$TAG" --repo "$GITHUB_REPOSITORY" --json assets -q '.assets[].name' | grep -Ev '\.(deb|dmg|exe)$|^Source code' || true); do
-              echo "  删除旧资产: $old"
-              gh release delete-asset "$TAG" --repo "$GITHUB_REPOSITORY" "$old" --yes || true
-            done
-            gh release upload "$TAG" --repo "$GITHUB_REPOSITORY" --clobber wezterm4neil*
-          else
-            gh release create "$TAG" \
-              --repo "$GITHUB_REPOSITORY" \
-              --title "WezTerm4Neil ${VER}" \
-              --notes "随源更新全家桶：WezTerm + Fish + Starship（每次构建从上游官方 Release 拉取当时最新）。
-              - macOS : 标准 DMG 安装包
-              - Linux : 标准 DEB 安装包（捆绑三软件二进制，安装后执行 bash /etc/wezterm4neil/install.sh 激活配置）
-              - Windows: 标准 EXE 安装器（NSIS，捆绑便携版，静默参数 /S）
-              GitHub 会自动附带 Source code (zip) 与 Source code (tar.gz)。
-              每个安装包内均含 VERSIONS.txt（组件版本/来源/commit）。" \
-              wezterm4neil*
+            echo "Release $TAG 已存在 → 删除重建（刷新发布时间；旧资产链接失效属预期）"
+            gh release delete "$TAG" --repo "$GITHUB_REPOSITORY" --yes --cleanup-tag || true
           fi
+          gh release create "$TAG" \
+            --repo "$GITHUB_REPOSITORY" \
+            --target "$GITHUB_SHA" \
+            --title "WezTerm4Neil ${VER}" \
+            --notes "随源更新全家桶：WezTerm + Fish + Starship（每次构建从上游官方 Release 拉取当时最新）。
+            - macOS : 标准 DMG 安装包
+            - Linux : 标准 DEB 安装包（捆绑三软件二进制，安装后执行 bash /etc/wezterm4neil/install.sh 激活配置）
+            - Windows: 标准 EXE 安装器（NSIS，捆绑便携版，静默参数 /S）
+            GitHub 会自动附带 Source code (zip) 与 Source code (tar.gz)。
+            每个安装包内均含 VERSIONS.txt（组件版本/来源/commit）。" \
+            wezterm4neil*
