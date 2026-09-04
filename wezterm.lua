@@ -134,16 +134,32 @@ config.mouse_bindings = {
 -- ----------------------------------------------------------------------------
 -- 5) Windows：默认 shell = 随包安装的 Nushell（若存在）；找不到则用系统默认
 --    （Windows 版安装包内置 nu.exe；macOS/Linux 仍由用户自行选择 shell）
+--    路径优先读安装器写下的 nu-path.txt（支持用户自定义安装目录），
+--    失败则回退默认 %LOCALAPPDATA%\Programs\wezterm4neil\nu\nu.exe。
+--    说明：io.open 使用正斜杠，Windows 文件 API 完全兼容，避免转义歧义。
 -- ----------------------------------------------------------------------------
 if IS_WINDOWS then
-  local la = os.getenv('LOCALAPPDATA') or ''
-  if la ~= '' then
-    local nu_exe = la .. '\\Programs\\wezterm4neil\\nu\\nu.exe'
-    local f = io.open(nu_exe, 'r')
-    if f then
-      f:close()
-      config.default_prog = { nu_exe }
+  local function file_exists(p)
+    local fh = io.open(p, 'r')
+    if fh then fh:close(); return true end
+    return false
+  end
+  local up = os.getenv('USERPROFILE') or ''
+  local nu_exe
+  local mh = io.open(up .. '/.config/wezterm4neil/nu-path.txt', 'r')
+  if mh then
+    nu_exe = mh:read('*l')
+    mh:close()
+  end
+  if not nu_exe or not file_exists(nu_exe) then
+    local la = os.getenv('LOCALAPPDATA') or ''
+    if la ~= '' then
+      local fallback = la .. '/Programs/wezterm4neil/nu/nu.exe'
+      if file_exists(fallback) then nu_exe = fallback end
     end
+  end
+  if nu_exe and file_exists(nu_exe) then
+    config.default_prog = { nu_exe }
   end
 end
 

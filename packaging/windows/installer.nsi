@@ -32,7 +32,12 @@ Section "Install"
   ; 递归打入整个 payload
   File /r "${SOURCE_DIR}\*.*"
 
-  ; 部署：注册用户 PATH + 写入 ~/.config（install.ps1 会检测 Root==AppDir 而跳过程序复制）
+  ; 标记 NSIS 安装（install.ps1 借此识别“Root 即最终安装目录”，从而支持自定义安装路径）
+  FileOpen $0 "$INSTDIR\.nsis-installed" w
+  FileWrite $0 "NSIS"
+  FileClose $0
+
+  ; 部署：注册用户 PATH + 写入 ~/.config / Nu autoload（install.ps1 检测到标记后不再复制程序）
   nsExec::ExecToStack 'powershell.exe -NoProfile -ExecutionPolicy Bypass -File "$INSTDIR\install.ps1"'
   Pop $0
   ${If} $0 != "0"

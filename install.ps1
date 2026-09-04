@@ -41,6 +41,7 @@ $AppDir     = Join-Path $env:LOCALAPPDATA 'Programs\wezterm4neil'
 $BundledWezTerm  = Test-Path (Join-Path $Root 'WezTerm')
 $BundledStarship = Test-Path (Join-Path $Root 'starship.exe')
 $BundledNu       = Test-Path (Join-Path $Root 'nu\nu.exe')
+$NsisMode        = Test-Path (Join-Path $Root '.nsis-installed')   # NSIS 安装器标记：Root 即最终安装目录
 $Bundled         = $BundledWezTerm -and $BundledStarship
 
 function Write-Log  { Write-Host "[wezterm4neil] $args" -ForegroundColor Green }
@@ -111,7 +112,7 @@ function Install-ConfigFiles {
 
 # ---- Nu 自动加载工具（starship 提示符 + 别名写入 Nu autoload 目录）-----------
 function Install-NuAutoload {
-    param([string]$RootDir)
+    param([string]$RootDir, [string]$NuExePath)
     $nuData = Join-Path $env:APPDATA 'nushell'
     $nuAuto = Join-Path $nuData 'vendor\autoload'
     New-Item -ItemType Directory -Path $nuAuto -Force | Out-Null
@@ -126,6 +127,13 @@ function Install-NuAutoload {
         $initLines | Set-Content -Path (Join-Path $nuAuto 'starship.nu') -Encoding utf8
         Write-Log "Nu starship 提示符已写入: vendor\autoload\starship.nu"
     }
+    # 记录实际 nu.exe 路径（供 wezterm.lua 在自定义安装路径时仍能找到 Nu 作为默认 shell）
+    if ($NuExePath -and (Test-Path $NuExePath)) {
+        $markerDir = Join-Path $ConfigRoot 'wezterm4neil'
+        New-Item -ItemType Directory -Path $markerDir -Force | Out-Null
+        Set-Content -Path (Join-Path $markerDir 'nu-path.txt') -Value $NuExePath -Encoding ascii
+        Write-Log "已记录 Nu 实际路径: $NuExePath"
+    }
     Write-Info "WezTerm 将默认打开 Nushell + Starship（开箱即用）"
 }
 
@@ -137,18 +145,14 @@ Write-Log "脚本目录: $Root"
 
 if ($Bundled) {
     # ---- ① 捆绑离线安装 -----------------------------------------------------
+    # 安装基准目录：NSIS 场景（含用户自定义路径）→ 程序已就地于 $Root=$INSTDIR；
+    # 手动解压 zip 场景 → 复制到默认 %LOCALAPPDATA%\Programs\wezterm4neil
     New-Item -ItemType Directory -Path $AppDir -Force | Out-Null
+    $InstallBase = if ($NsisMode) { $Root } else { $AppDir }
 
-    $dstWez  = Join-Path $AppDir 'WezTerm'
-    $dstStar = Join-Path $AppDir 'starship.exe'
-
-    # NSIS 安装器场景：install.ps1 已在最终安装目录内执行（Root == AppDir），
-    # 程序已就地就位 → 跳过程序复制（避免 Copy-Item 同路径自复制报错），只注册 PATH 与配置。
-    $rootReal = (Resolve-Path $Root -ErrorAction SilentlyContinue).Path
-    $appReal  = (Resolve-Path $AppDir -ErrorAction SilentlyContinue).Path
-    if ($rootReal -and $appReal -and $rootReal -eq $appReal) {
-        Write-Log "已在安装目录内运行（NSIS 场景），跳过程序复制，仅注册 PATH 与配置"
-    } else {
+    $dstWez  = Join-Path $InstallBase 'WezTerm'
+    $dstStar = Join-Path $InstallBase 'starship.exe'
+    if (-not $NsisMode) {
         if (Test-Path $dstWez) {
             if ($Force) { Remove-Item $dstWez -Recurse -Force }
             else { Write-Warn "$dstWez 已存在，将合并/覆盖同名文件" }
@@ -158,23 +162,26 @@ if ($Bundled) {
 
         Write-Log "复制 starship.exe -> $dstStar"
         Copy-Item (Join-Path $Root 'starship.exe') $dstStar -Force
+    } else {
+        Write-Log "NSIS 安装目录: $InstallBase（程序已就地，跳过复制）"
     }
-    Add-ToUserPath (Join-Path $AppDir 'WezTerm')
-    Add-ToUserPath $AppDir
+    Add-ToUserPath (Join-Path $InstallBase 'WezTerm')
+    Add-ToUserPath $InstallBase
 
     Write-Log "已安装: $dstWez"
     Write-Log "已安装: $dstStar"
 
-    # ---- Nushell（Windows 原生默认 shell）→ nu\nu.exe ---------------------
-    $dstNuDir = Join-Path $AppDir 'nu'
+    # ---- Nushell（Windows 原生默认 shell）→ <InstallBase>\nu\nu.exe ------
+    $dstNuDir = Join-Path $InstallBase 'nu'
+    $NuActual = ''
     if ($BundledNu) {
-        $sameDir = ($rootReal -and $appReal -and $rootReal -eq $appReal)
-        if (-not $sameDir -and -not (Test-Path (Join-Path $dstNuDir 'nu.exe'))) {
+        if (-not $NsisMode -and -not (Test-Path (Join-Path $dstNuDir 'nu.exe'))) {
             Write-Log "复制 Nushell -> $dstNuDir"
             Copy-Item (Join-Path $Root 'nu') $dstNuDir -Recurse -Force
         }
         Add-ToUserPath $dstNuDir
-        Write-Log "已安装: $(Join-Path $dstNuDir 'nu.exe')"
+        $NuActual = Join-Path $dstNuDir 'nu.exe'
+        Write-Log "已安装: $NuActual"
     }
 } else {
     # ---- ② 在线回退 ---------------------------------------------------------
@@ -204,7 +211,7 @@ Install-ConfigFiles
 
 # ---- Nushell 自动加载：starship 提示符 + 别名（有随包 nu 才做）---------------
 if ($BundledNu) {
-    Install-NuAutoload -RootDir $Root
+    Install-NuAutoload -RootDir $Root -NuExePath $NuActual
 }
 
 # 版本信息
