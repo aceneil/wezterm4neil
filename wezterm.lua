@@ -12,6 +12,17 @@ local wezterm = require 'wezterm'
 -- config_builder() 是官方推荐的构造方式；极老版本不存在时回退为空表
 local config = wezterm.config_builder and wezterm.config_builder() or {}
 
+-- 平台识别（快捷键 / 启动菜单需区分 macOS / Linux / Windows）
+local IS_WINDOWS = wezterm.target_triple and wezterm.target_triple:find('windows') and true or false
+
+-- 启动菜单（CTRL+SHIFT+Space 打开）：仅 Windows 提供 PowerShell / Cmd
+if IS_WINDOWS then
+  config.launch_menu = {
+    { label = 'PowerShell', args = { 'powershell.exe', '-NoLogo' } },
+    { label = 'Cmd',        args = { 'cmd.exe' } },
+  }
+end
+
 -- ----------------------------------------------------------------------------
 -- 1) 自动读取 ~/.ssh/config 别名，生成 SSH 域（ssh_domains）
 --    wezterm.enumerate_ssh_hosts() 会解析 ~/.ssh/config 与 /etc/ssh/ssh_config，
@@ -50,6 +61,7 @@ end
 -- 2) 字体与基础外观（跨平台：优先用户已装字体，逐级回退保证 CJK 显示）
 -- ----------------------------------------------------------------------------
 config.font = wezterm.font_with_fallback({
+  'CaskaydiaCove Nerd Font',   -- weterm3 参考首选（未安装自动回退）
   'JetBrains Mono',
   'Fira Code',
   'Menlo',                 -- macOS 内置
@@ -66,6 +78,10 @@ config.window_padding = { left = 10, right = 10, top = 10, bottom = 10 }
 config.window_decorations = 'TITLE | RESIZE'
 config.window_close_confirmation = 'NeverPrompt'
 config.hide_tab_bar_if_only_one_tab = true
+config.show_tab_index_in_tab_bar = true
+config.inactive_pane_hsb = { saturation = 0.9, brightness = 0.8 }
+config.initial_cols = 140
+config.initial_rows = 30
 -- macOS 专属毛玻璃背景（其它平台自动忽略）
 config.macos_window_background_blur = 30
 
@@ -95,10 +111,31 @@ config.keys = {
 }
 
 -- ----------------------------------------------------------------------------
+-- 4.5) 附加常用键位（来自 Byxs20/terminal_config 参考，跨平台安全子集）
+--   说明：CTRL+T / ALT+W / CTRL+1..8 / 鼠标复制·开链接 / 窗口居中 在
+--         macOS · Linux · Windows 语义一致，可直接使用；
+--         原参考里的 WSL/kali/cmd/pwsh 标签快捷键仅 Windows 有意义且绑定具体
+--         发行版，这里不引入——Windows 用户可用上方 launch_menu（CTRL+SHIFT+Space）
+--         打开 PowerShell / Cmd。
+-- ----------------------------------------------------------------------------
+table.insert(config.keys, { key = 't', mods = 'CTRL', action = wezterm.action.SpawnTab 'DefaultDomain' })
+table.insert(config.keys, { key = 'w', mods = 'ALT', action = wezterm.action.CloseCurrentTab { confirm = false } })
+for i = 1, 8 do
+  table.insert(config.keys, { key = tostring(i), mods = 'CTRL', action = wezterm.action.ActivateTab(i - 1) })
+end
+
+config.mouse_bindings = {
+  -- 松开左键自动复制选中内容到剪贴板
+  { event = { Up = { streak = 1, button = 'Left' } }, mods = 'NONE', action = wezterm.action.CompleteSelection 'ClipboardAndPrimarySelection' },
+  -- CTRL+左键打开光标处链接
+  { event = { Up = { streak = 1, button = 'Left' } }, mods = 'CTRL', action = wezterm.action.OpenLinkAtMouseCursor },
+}
+
+-- ----------------------------------------------------------------------------
 -- 5) Windows：默认 shell = 随包安装的 Nushell（若存在）；找不到则用系统默认
 --    （Windows 版安装包内置 nu.exe；macOS/Linux 仍由用户自行选择 shell）
 -- ----------------------------------------------------------------------------
-if wezterm.target_triple and wezterm.target_triple:find('windows') then
+if IS_WINDOWS then
   local la = os.getenv('LOCALAPPDATA') or ''
   if la ~= '' then
     local nu_exe = la .. '\\Programs\\wezterm4neil\\nu\\nu.exe'
@@ -108,6 +145,28 @@ if wezterm.target_triple and wezterm.target_triple:find('windows') then
       config.default_prog = { nu_exe }
     end
   end
+end
+
+-- ----------------------------------------------------------------------------
+-- 6) 启动时窗口居中（Byxs20/terminal_config 参考）；无 GUI/异常环境自动跳过
+-- ----------------------------------------------------------------------------
+if wezterm.gui then
+  wezterm.on('gui-startup', function(cmd)
+    local screens = wezterm.gui.screens()
+    local screen = screens and screens.active
+    if not screen then return end
+    local width, height = screen.width * 0.5, screen.height * 0.5
+    local _, _, window = wezterm.mux.spawn_window(cmd or {
+      position = {
+        x = (screen.width - width) / 2,
+        y = (screen.height - height) / 2,
+        origin = { Named = screen.name },
+      },
+    })
+    if window and window:gui_window() then
+      window:gui_window():set_inner_size(width, height)
+    end
+  end)
 end
 
 return config
