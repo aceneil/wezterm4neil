@@ -9,12 +9,12 @@ sort_by = "natural"
 sort_dir_first = true
 show_hidden = false
 
-# 打开器：文本类文件在“右侧新 Zellij 窗格”用编辑器打开（本布局内体验最佳）。
-# 本机默认 vim；装了 nvim 后把下面两处 vim 改成 nvim（或设 $EDITOR 后改读 env）。
+# 打开器：文本类文件在「新的 WezTerm 窗口」用编辑器打开（不再挤在侧边栏里分屏）。
+# 本机默认 vim；装了 nvim 后把下面两处 vim 改成 nvim。
 [opener]
 nvr = [
-  { run = "zellij run --direction right -- vim %s1", for = "unix", desc = "右侧 Zellij 窗格 vim 打开" },
-  { run = "vim %s1", block = true, for = "unix", desc = "当前窗格 vim 打开" },
+  { run = "wezterm start -- vim %s1", orphan = true, for = "unix", desc = "新 WezTerm 窗口 vim 打开" },
+  { run = "vim %s1", block = true, for = "unix", desc = "当前窗格 vim 打开（无桌面/无 wezterm 时兜底）" },
 ]
 
 [open]
