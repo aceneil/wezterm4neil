@@ -319,9 +319,9 @@ func (m *Model) handleMouse(msg tea.MouseMsg) (tea.Model, tea.Cmd) {
 			}
 			return m, nil
 		}
-			if y >= m.serverListEnd()+2 && y < m.height-1 {
-				m.focus = paneFiles
-				m.fileCur = clamp(y-(m.serverListEnd()+2), 0, max(0, len(m.fileView)-1))
+		if y >= m.serverListEnd()+2 && y < m.height-1 {
+			m.focus = paneFiles
+			m.fileCur = clamp(y-(m.serverListEnd()+2), 0, max(0, len(m.fileView)-1))
 			if double {
 				m.enterSelectedFile()
 			}
