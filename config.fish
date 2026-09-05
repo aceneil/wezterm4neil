@@ -84,3 +84,6 @@ function herdr
         command "$h" $argv
     end
 end
+
+# Alt+f = 打开 herdr 悬浮窗（fish 命令行模式绑定；会覆盖默认 Alt+f 前进一词）
+bind \ef herdr
