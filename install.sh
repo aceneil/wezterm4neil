@@ -73,6 +73,7 @@ ITEMS=(
   "config/zellij/config.kdl|zellij|config.kdl"
   "config/zellij/layouts/sidebar.kdl|zellij/layouts|sidebar.kdl"
   "config/yazi/keymap.toml|yazi|keymap.toml"
+  "config/yazi/yazi.toml|yazi|yazi.toml"
 )
 
 log()  { printf '\033[1;32m[wezterm4neil]\033[0m %s\n' "$*"; }

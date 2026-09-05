@@ -1,0 +1,31 @@
+# Yazi 主配置（WezTerm4Neil · 侧边栏版）
+# 参考: https://yazi-rs.github.io/docs/configuration/yazi/
+
+[mgr]
+# 单列文件列表：只保留「当前目录」一列，隐藏 parent 与 preview 面板
+# （侧边栏宽度有限；预览改由右侧 Zellij 窗格 + nvim 负责）
+ratio = [0, 4, 0]
+sort_by = "natural"
+sort_dir_first = true
+show_hidden = false
+
+# 打开器：文本类文件在“右侧新 Zellij 窗格”用编辑器打开（本布局内体验最佳）。
+# 本机默认 vim；装了 nvim 后把下面两处 vim 改成 nvim（或设 $EDITOR 后改读 env）。
+[opener]
+nvr = [
+  { run = "zellij run --direction right -- vim %s1", for = "unix", desc = "右侧 Zellij 窗格 vim 打开" },
+  { run = "vim %s1", block = true, for = "unix", desc = "当前窗格 vim 打开" },
+]
+
+[open]
+prepend_rules = [
+  { mime = "text/*", use = ["nvr"] },
+  { mime = "application/json", use = ["nvr"] },
+  { mime = "application/toml", use = ["nvr"] },
+  { mime = "application/xml", use = ["nvr"] },
+  { mime = "application/x-shellscript", use = ["nvr"] },
+  { mime = "text/markdown", use = ["nvr"] },
+  { url = "*.md", use = ["nvr"] },
+  { url = "*.conf", use = ["nvr"] },
+  # 其余类型（图片/视频/压缩包等）走系统默认打开方式
+]

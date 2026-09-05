@@ -184,6 +184,7 @@ cat > "$STAGE/DEBIAN/conffiles" <<'EOF'
 /etc/wezterm4neil/skel/config/zellij/config.kdl
 /etc/wezterm4neil/skel/config/zellij/layouts/sidebar.kdl
 /etc/wezterm4neil/skel/config/yazi/keymap.toml
+/etc/wezterm4neil/skel/config/yazi/yazi.toml
 /etc/wezterm4neil/skel/scripts/server-menu.sh
 EOF
 
