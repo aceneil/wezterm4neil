@@ -156,7 +156,8 @@ style = "bg:#86BBD8"
 format = '[ $symbol ($version) ]($style)'
 
 [time]
-disabled = false
+disabled = true
+# 时间显示已按用户偏好关闭；如需恢复改成 disabled = false 并取消上面注释即可
 time_format = "%R" # Hour:Minute Format
 style = "bg:#33658A"
 format = '[ ♥ $time ]($style)'

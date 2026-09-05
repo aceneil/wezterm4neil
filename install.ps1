@@ -143,6 +143,30 @@ function Install-NuAutoload {
     Write-Info "WezTerm 将默认打开 Nushell + Starship（开箱即用）"
 }
 
+
+# ---- Nerd Font 自动安装（用户级免管理员；CaskaydiaCove 供 Powerline 图标）----
+function Install-NerdFonts {
+    param([string]$RootDir)
+    $src = Join-Path $RootDir 'fonts'
+    if (-not (Test-Path $src)) { Write-Warn "未发现 fonts 目录，跳过字体安装"; return }
+    $fd = Join-Path $env:LOCALAPPDATA 'Microsoft\Windows\Fonts'
+    New-Item -ItemType Directory -Path $fd -Force | Out-Null
+    $reg = 'HKCU:\Software\Microsoft\Windows NT\CurrentVersion\Fonts'
+    $regNames = @{
+        'CaskaydiaCoveNerdFont-Regular.ttf'    = 'CaskaydiaCove Nerd Font (TrueType)'
+        'CaskaydiaCoveNerdFont-Bold.ttf'       = 'CaskaydiaCove Nerd Font Bold (TrueType)'
+        'CaskaydiaCoveNerdFont-Italic.ttf'     = 'CaskaydiaCove Nerd Font Italic (TrueType)'
+        'CaskaydiaCoveNerdFont-BoldItalic.ttf' = 'CaskaydiaCove Nerd Font Bold Italic (TrueType)'
+    }
+    foreach ($ttf in Get-ChildItem $src -Filter *.ttf) {
+        Copy-Item $ttf.FullName (Join-Path $fd $ttf.Name) -Force
+        $val = $regNames[$ttf.Name]
+        if (-not $val) { $val = ($ttf.BaseName -replace '-', ' ') + ' (TrueType)' }
+        New-ItemProperty -Path $reg -Name $val -Value (Join-Path $fd $ttf.Name) -PropertyType String -Force | Out-Null
+        Write-Log "字体已安装: $val"
+    }
+}
+
 # ============================ 主流程 ==========================================
 Write-Host ""
 Write-Log "WezTerm4Neil installer (Windows)"
@@ -154,6 +178,7 @@ if ($Bundled) {
     Add-ToUserPath $Root                       # WezTerm 本体（wezterm-gui.exe 在根）
     if ($BundledNu) { Add-ToUserPath (Join-Path $Root 'nu') }
     if (Test-Path (Join-Path $Root 'starship\starship.exe')) { Add-ToUserPath (Join-Path $Root 'starship') }
+    Install-NerdFonts -RootDir $Root
 
     $NuActual = if ($BundledNu) { Join-Path $Root 'nu\nu.exe' } else { '' }
     Write-Log "WezTerm 本体: $Root\wezterm-gui.exe"

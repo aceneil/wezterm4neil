@@ -146,6 +146,26 @@ jobs:
             '.assets[] | select(.name | (contains("x86_64") and contains("windows") and endswith(".zip"))) | .browser_download_url' \
             upstream/starship-windows.zip starship-windows
 
+          # ---- CaskaydiaCove Nerd Font（子集：随三端安装包自动安装）--------
+          FONT_JSON="$(api https://api.github.com/repos/ryanoasis/nerd-fonts/releases/latest)"
+          echo "nerd-fonts latest tag: $(jq -r .tag_name <<<"$FONT_JSON")"
+          FONT_URL="$(firsturl '.assets[] | select(.name == "CaskaydiaCove.zip") | .browser_download_url' <<<"$FONT_JSON")"
+          if [[ -z "$FONT_URL" ]]; then
+            echo "✘ nerd-fonts: 找不到 CaskaydiaCove.zip 资产" >&2
+            exit 1
+          fi
+          api "$FONT_URL" -o /tmp/CaskaydiaCove.zip
+          rm -rf /tmp/nf && mkdir -p /tmp/nf fonts
+          (cd /tmp/nf && unzip -q /tmp/CaskaydiaCove.zip)
+          for w in Regular Bold Italic BoldItalic; do
+            find /tmp/nf -type f -iname "CaskaydiaCoveNerdFont-$w.ttf" -exec cp {} fonts/ \; -quit
+          done
+          # 兜底：若命名变化导致上面没抓到，就把所有 ttf 拷入，避免缺失
+          if ! ls fonts/*.ttf >/dev/null 2>&1; then
+            find /tmp/nf -type f -iname '*.ttf' -exec cp {} fonts/ \;
+          fi
+          echo "---- fonts ----"; ls -la fonts
+
           # ---- Nushell (nushell/nushell) — Windows 原生默认 shell ------------
           NUS_JSON="$(api https://api.github.com/repos/nushell/nushell/releases/latest)"
           NUS_VER="$(jq -r .tag_name <<<"$NUS_JSON")"
@@ -212,6 +232,7 @@ jobs:
           name: upstream
           path: |
             upstream
+            fonts
             licenses
             VERSIONS.txt
           if-no-files-found: error
@@ -316,6 +337,7 @@ jobs:
             "${FISH_ARG[@]}" \
             --starship-tar dl/upstream/starship-linux.tar.gz \
             --config-dir "$GITHUB_WORKSPACE" \
+            --fonts-dir dl/fonts \
             --versions-txt dl/VERSIONS.txt \
             --licenses-dir dl/licenses \
             --out .
@@ -418,6 +440,7 @@ jobs:
           cp packaging/macos/README.txt dmg/README.txt
           cp dl/VERSIONS.txt dmg/VERSIONS.txt
           cp -r dl/licenses dmg/licenses
+          cp -r dl/fonts dmg/fonts
           chmod +x dmg/install.command dmg/install.sh
           ls -la dmg
 
@@ -495,6 +518,7 @@ jobs:
           Copy-Item packaging/windows/README.txt zst\README.txt
           Copy-Item dl/VERSIONS.txt zst\VERSIONS.txt
           Copy-Item dl/licenses zst\licenses -Recurse
+          Copy-Item dl/fonts zst\fonts -Recurse
           Write-Host "payload ready:"; Get-ChildItem zst | Select-Object Name, Length
 
       - name: Install NSIS

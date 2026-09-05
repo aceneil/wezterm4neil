@@ -119,6 +119,19 @@ for item in "${ITEMS[@]}"; do
   install_one "$src" "$dst_dir" "$dst_file"
 done
 
+# ---- Nerd Font 自动安装（fonts/ 与脚本同级时：.deb=/etc/wezterm4neil/fonts、DMG=根 fonts）----
+if [[ -d "$SCRIPT_DIR/fonts" ]]; then
+  FONTS_TARGET="${XDG_DATA_HOME:-$HOME/.local/share}/fonts"
+  mkdir -p "$FONTS_TARGET"
+  installed=0
+  for f in "$SCRIPT_DIR"/fonts/*.ttf; do
+    [[ -e "$f" ]] || continue
+    cp -f "$f" "$FONTS_TARGET/" && installed=$((installed+1))
+  done
+  if command -v fc-cache >/dev/null 2>&1; then fc-cache -f >/dev/null 2>&1 || true; fi
+  log "Nerd Font 已安装到 $FONTS_TARGET（$installed 个）"
+fi
+
 # .deb 环境下额外提示捆绑的 VERSIONS.txt
 if [[ -f "$SCRIPT_DIR/VERSIONS.txt" ]]; then
   echo

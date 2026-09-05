@@ -61,6 +61,7 @@ end
 -- 2) 字体与基础外观（跨平台：优先用户已装字体，逐级回退保证 CJK 显示）
 -- ----------------------------------------------------------------------------
 config.font = wezterm.font_with_fallback({
+  'CaskaydiaCove Nerd Font',   -- 随安装包自动安装（Pastel Powerline 图标所需）
   'Cascadia Mono',           -- Windows 11 自带
   'Consolas',                -- Windows 内置
   'Menlo',                   -- macOS 内置

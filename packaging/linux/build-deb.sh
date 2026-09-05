@@ -27,7 +27,7 @@ set -euo pipefail
 
 # ---- 参数解析 ---------------------------------------------------------------
 VER=""; WEZTERM_DEB=""; FISH_TARBALL=""; FISH_DEB=""; STARSHIP_TAR=""
-CONFIG_DIR=""; VERSIONS_TXT=""; LICENSES_DIR=""; OUT_DIR="$(pwd)"
+CONFIG_DIR=""; FONTS_DIR=""; VERSIONS_TXT=""; LICENSES_DIR=""; OUT_DIR="$(pwd)"
 while [[ $# -gt 0 ]]; do
   case "$1" in
     --ver)          VER="$2"; shift 2 ;;
@@ -36,6 +36,7 @@ while [[ $# -gt 0 ]]; do
     --fish-deb)     FISH_DEB="$2"; shift 2 ;;
     --starship-tar) STARSHIP_TAR="$2"; shift 2 ;;
     --config-dir)   CONFIG_DIR="$2"; shift 2 ;;
+    --fonts-dir)    FONTS_DIR="$2"; shift 2 ;;
     --versions-txt) VERSIONS_TXT="$2"; shift 2 ;;
     --licenses-dir) LICENSES_DIR="$2"; shift 2 ;;
     --out)          OUT_DIR="$2"; shift 2 ;;
@@ -115,6 +116,13 @@ for f in wezterm.lua config.fish starship.toml; do
 done
 [[ -f "$CONFIG_DIR/install.sh" ]] && install -Dm755 "$CONFIG_DIR/install.sh" "$STAGE/etc/wezterm4neil/install.sh"
 cp "$VERSIONS_TXT" "$STAGE/etc/wezterm4neil/VERSIONS.txt"
+
+# Nerd Font 子集（供 install.sh 自动装到 ~/.local/share/fonts）→ /etc/wezterm4neil/fonts
+if [[ -n "$FONTS_DIR" && -d "$FONTS_DIR" ]]; then
+  mkdir -p "$STAGE/etc/wezterm4neil/fonts"
+  cp -r "$FONTS_DIR"/. "$STAGE/etc/wezterm4neil/fonts/"
+  echo "[build-deb] 已捆绑字体: $(ls "$STAGE/etc/wezterm4neil/fonts" | wc -l) 个"
+fi
 
 # conffiles（升级时用户改过的 /etc 下文件不会被无脑覆盖）
 cat > "$STAGE/DEBIAN/conffiles" <<'EOF'
