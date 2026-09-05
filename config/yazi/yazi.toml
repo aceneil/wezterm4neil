@@ -9,12 +9,10 @@ sort_by = "natural"
 sort_dir_first = true
 show_hidden = false
 
-# 打开器：文本文件用 wz-open.sh —— Zellij 内=新标签页整屏 vim；否则当前窗格 vim。
-# 换 nvim：改 ~/.local/bin/wz-open.sh 里的 vim 为 nvim。
+# 打开器：文本文件用 wz-open.sh —— Zellij 内=悬浮窗整屏编辑器（优先 nvim，缺则 vim）。
 [opener]
 nvr = [
-  { run = "bash ~/.local/bin/wz-open.sh \"%s1\"", orphan = true, for = "unix", desc = "新标签页 vim 打开" },
-  { run = "vim %s1", block = true, for = "unix", desc = "当前窗格 vim 打开（兜底）" },
+  { run = "bash ~/.local/bin/wz-open.sh \"%s1\"", orphan = true, for = "unix", desc = "悬浮窗编辑器打开" },
 ]
 
 [open]
