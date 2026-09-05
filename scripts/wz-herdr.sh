@@ -18,11 +18,6 @@ if [[ -z "$H" ]]; then
   exit 1
 fi
 
-# 让 herdr 内部终端使用 fish（登录 SHELL 可能是 bash，会丢 fish 提示/自动补全）
-if command -v fish >/dev/null 2>&1; then
-  export SHELL="$(command -v fish)"
-fi
-
 # 锁定 Zellij 快捷键 → 全部按键直达 herdr
 zellij action switch-mode locked >/dev/null 2>&1 || true
 
