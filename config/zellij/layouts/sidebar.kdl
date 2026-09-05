@@ -1,29 +1,29 @@
 // Zellij 复合侧栏布局（WezTerm4Neil 第二层，2026-09-06 改造）
 //
-// 结构：左侧 20% 横向两段（horizontal split），每段跑一个独立的 wznav 实例：
+// 结构：左侧 20% 横向两段（horizontal split），每段跑一个独立的 neilwz-nav-tui 实例：
 //       ┌─────────────┐
-//       │ wznav       │  ← 顶 50%：`wznav --section servers`（服务器列表）
+//       │ neilwz-nav-tui       │  ← 顶 50%：`neilwz-nav-tui --section servers`（服务器列表）
 //       │  --section  │
 //       │   servers   │
 //       ├─────────────┤
-//       │ wznav       │  ← 底 50%：`wznav --section files`（文件浏览）
-//       │  --section  │     两个 wznav 都独立嵌入 ws server，端口按 WZNAV_WS
+//       │ neilwz-nav-tui       │  ← 底 50%：`neilwz-nav-tui --section files`（文件浏览）
+//       │  --section  │     两个 neilwz-nav-tui 都独立嵌入 ws server，端口按 WZNAV_WS
 //       │   files     │     递增；聚焦切换走 Zellij 原生 Alt+h/j/k/l
 //       ├─────────────┤
 //       │ 💻 主终端    │  ← 右侧 80% 主终端
 //       └─────────────┘
 //
-// 跑法：PATH 前缀确保能找到 wznav；缺则 pane 退化为 fish/bash 提示，
+// 跑法：PATH 前缀确保能找到 neilwz-nav-tui；缺则 pane 退化为 fish/bash 提示，
 //       不影响右侧。
 //
-// 错误处理：若 PATH 里没有 wznav，子 pane 会立即退出；zellij 会按
-//       pane_command_finder_failure_strategy 处理。建议安装时把 wznav
+// 错误处理：若 PATH 里没有 neilwz-nav-tui，子 pane 会立即退出；zellij 会按
+//       pane_command_finder_failure_strategy 处理。建议安装时把 neilwz-nav-tui
 //       复制到 ~/.local/bin（install.sh） 或 /usr/bin（.deb）。
 //
 // 历史：
 //   v1 = 上 40% server-menu.sh + 下 60% yazi（2026-09 之前）
-//   v2 = 单 pane wznav 上下两区（2026-09-06 一期）
-//   v3 = 横向两段 wznav（--section servers / files；本期 R2）
+//   v2 = 单 pane neilwz-nav-tui 上下两区（2026-09-06 一期）
+//   v3 = 横向两段 neilwz-nav-tui（--section servers / files；本期 R2）
 layout {
     default_tab_template {
         pane size=1 borderless=true {
@@ -40,15 +40,15 @@ layout {
             // 左侧 20% 横向两段：上 = 服务器列表，下 = 文件浏览。
             pane size="20%" {
                 pane split_direction="horizontal" {
-                    // 上半：服务器列表（wznav 单段 servers 模式）
-                    pane size="50%" name="wznav-servers" {
+                    // 上半：服务器列表（neilwz-nav-tui 单段 servers 模式）
+                    pane size="50%" name="neilwz-nav-tui-servers" {
                         command "bash"
-                        args "-lc" "if command -v wznav >/dev/null 2>&1; then exec wznav --section servers; else echo '⚠ wznav 未安装 — 装到 ~/.local/bin 后重进即热插入'; exec fish 2>/dev/null || exec bash; fi"
+                        args "-lc" "if command -v neilwz-nav-tui >/dev/null 2>&1; then exec neilwz-nav-tui --section servers; else echo '⚠ neilwz-nav-tui 未安装 — 装到 ~/.local/bin 后重进即热插入'; exec fish 2>/dev/null || exec bash; fi"
                     }
-                    // 下半：文件浏览（wznav 单段 files 模式）
-                    pane size="50%" name="wznav-files" {
+                    // 下半：文件浏览（neilwz-nav-tui 单段 files 模式）
+                    pane size="50%" name="neilwz-nav-tui-files" {
                         command "bash"
-                        args "-lc" "if command -v wznav >/dev/null 2>&1; then exec wznav --section files; else echo '⚠ wznav 未安装 — 装到 ~/.local/bin 后重进即热插入'; exec fish 2>/dev/null || exec bash; fi"
+                        args "-lc" "if command -v neilwz-nav-tui >/dev/null 2>&1; then exec neilwz-nav-tui --section files; else echo '⚠ neilwz-nav-tui 未安装 — 装到 ~/.local/bin 后重进即热插入'; exec fish 2>/dev/null || exec bash; fi"
                     }
                 }
             }

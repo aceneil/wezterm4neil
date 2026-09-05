@@ -36,7 +36,7 @@ while [[ $# -gt 0 ]]; do
     --fish-deb)     FISH_DEB="$2"; shift 2 ;;
     --starship-tar) STARSHIP_TAR="$2"; shift 2 ;;
     --zellij-tar)   ZELLIJ_TAR="$2"; shift 2 ;;
-    --wznav-bin)    WZNAV_BIN="$2"; shift 2 ;;
+    --neilwz-nav-tui-bin)    WZNAV_BIN="$2"; shift 2 ;;
     --yazi-zip)     YAZI_ZIP="$2"; shift 2 ;;
     --config-dir)   CONFIG_DIR="$2"; shift 2 ;;
     --fonts-dir)    FONTS_DIR="$2"; shift 2 ;;
@@ -127,13 +127,13 @@ if [[ -n "$YAZI_ZIP" ]]; then
   rm -rf "$TMPF"
 fi
 
-# ---- 4.7) wznav 自研侧栏 TUI 二进制 -> /usr/bin/wznav（可选；向后兼容）-------
-# 仅当 --wznav-bin 显式提供时才装。layout 默认靠 PATH 找 wznav；显式指定
+# ---- 4.7) neilwz-nav-tui 自研侧栏 TUI 二进制 -> /usr/bin/neilwz-nav-tui（可选；向后兼容）-------
+# 仅当 --neilwz-nav-tui-bin 显式提供时才装。layout 默认靠 PATH 找 neilwz-nav-tui；显式指定
 # 是为了在 .deb 安装后无需 fish 配置即可跑（PATH 由 wezterm 继承保证）。
 if [[ -n "$WZNAV_BIN" ]]; then
-  [[ -f "$WZNAV_BIN" ]] || err "wznav 二进制不存在: $WZNAV_BIN"
-  install -Dm755 "$WZNAV_BIN" "$STAGE/usr/bin/wznav"
-  echo "[build-deb] wznav 已装到 /usr/bin/wznav"
+  [[ -f "$WZNAV_BIN" ]] || err "neilwz-nav-tui 二进制不存在: $WZNAV_BIN"
+  install -Dm755 "$WZNAV_BIN" "$STAGE/usr/bin/neilwz-nav-tui"
+  echo "[build-deb] neilwz-nav-tui 已装到 /usr/bin/neilwz-nav-tui"
 fi
 
 # ---- 4) 移除上游 DEBIAN，装配我们自己的元数据 -------------------------------
