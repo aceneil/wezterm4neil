@@ -94,21 +94,29 @@ config.use_fancy_tab_bar = true
 -- inactive_pane_hsb 仅调暗“分屏中非活动窗格”，与标签栏无关（勿用它调标签栏）
 config.inactive_pane_hsb = { saturation = 0.9, brightness = 0.8 }
 -- 标签栏配色：自动跟随当前配色方案底色（改 color_scheme 即同步，无需手写色值）。
--- 原理：从内置方案表取出 background/foreground，再做微调派生非活动/悬停色。
+-- 用纯 Lua 十六进制调色派生非活动/悬停色（不依赖 wezterm 颜色 API 版本差异）。
 local _scheme = wezterm.color.get_builtin_schemes()['Catppuccin Mocha']
 if _scheme and _scheme.background then
+  local function _shade(hex, f)
+    local h = hex:gsub('^#', '')
+    local function ch(c)
+      local v = math.floor(c * f)
+      if v < 0 then v = 0 elseif v > 255 then v = 255 end
+      return string.format('%02x', v)
+    end
+    return '#' .. ch(tonumber(h:sub(1, 2), 16)) .. ch(tonumber(h:sub(3, 4), 16)) .. ch(tonumber(h:sub(5, 6), 16))
+  end
   local _bg = _scheme.background
-  local _c  = wezterm.color.parse(_bg)
   local _fg = _scheme.foreground or '#cdd6f4'
   config.colors = {
     tab_bar = {
       background = _bg,
       active_tab = { bg_color = _bg, fg_color = _fg, intensity = 'Bold' },
-      inactive_tab = { bg_color = _c:darken(0.05):to_string(), fg_color = _fg },
-      inactive_tab_hover = { bg_color = _c:lighten(0.08):to_string(), fg_color = _fg },
-      new_tab = { bg_color = _bg, fg_color = _c:lighten(0.18):to_string() },
-      new_tab_hover = { bg_color = _c:lighten(0.08):to_string(), fg_color = _fg },
-      inactive_tab_edge = _c:darken(0.05):to_string(),
+      inactive_tab = { bg_color = _shade(_bg, 0.95), fg_color = _fg },
+      inactive_tab_hover = { bg_color = _shade(_bg, 1.08), fg_color = _fg },
+      new_tab = { bg_color = _bg, fg_color = _shade(_bg, 1.18) },
+      new_tab_hover = { bg_color = _shade(_bg, 1.08), fg_color = _fg },
+      inactive_tab_edge = _shade(_bg, 0.95),
     },
   }
 end
