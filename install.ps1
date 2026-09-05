@@ -45,7 +45,7 @@ $AppDir     = $Root                     # 产品根即安装目录（WezTerm 最
 # 捆绑检测
 $BundledWezTerm  = Test-Path (Join-Path $Root 'wezterm-gui.exe')
 $BundledNu       = Test-Path (Join-Path $Root 'nu\nu.exe')
-$BundledStarship = Test-Path (Join-Path $Root 'starship\starship.exe') -or (Test-Path (Join-Path $Root 'starship.exe'))
+$BundledStarship = (Test-Path (Join-Path $Root 'starship\starship.exe')) -or (Test-Path (Join-Path $Root 'starship.exe'))
 $Bundled         = $BundledWezTerm -and $BundledStarship
 
 function Write-Log  { Write-Host "[wezterm4neil] $args" -ForegroundColor Green }
