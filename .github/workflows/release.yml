@@ -131,19 +131,19 @@ jobs:
           STAR_JSON="$(api https://api.github.com/repos/starship/starship/releases/latest)"
           STAR_VER="$(jq -r .tag_name <<<"$STAR_JSON")"
           echo "starship latest tag: $STAR_VER"
-          # starship: 官方单文件二进制（命名形如 starship-x86_64-unknown-linux-gnu.tar.gz /
-          #   -apple-darwin… / -pc-windows-msvc.zip）
+          # starship: 官方单文件二进制。注意 releases 同时含 x86_64/aarch64 资产，
+          # 必须强制 x86_64（与 GitHub 标准 runner 架构一致），否则会误捆 ARM64 版导致“不是有效应用程序”
           pick3 "$STAR_JSON" \
-            '.assets[] | select(.name | (contains("unknown-linux-gnu") and endswith(".tar.gz"))) | .browser_download_url' \
-            '.assets[] | select(.name | (contains("linux") and endswith(".tar.gz"))) | .browser_download_url' \
+            '.assets[] | select(.name | (contains("x86_64-unknown-linux-gnu") and endswith(".tar.gz"))) | .browser_download_url' \
+            '.assets[] | select(.name | (contains("x86_64") and contains("linux") and endswith(".tar.gz"))) | .browser_download_url' \
             upstream/starship-linux.tar.gz starship-linux
           pick3 "$STAR_JSON" \
-            '.assets[] | select(.name | (contains("apple-darwin") and endswith(".tar.gz"))) | .browser_download_url' \
-            '.assets[] | select(.name | (contains("darwin") and endswith(".tar.gz"))) | .browser_download_url' \
+            '.assets[] | select(.name | (contains("x86_64-apple-darwin") and endswith(".tar.gz"))) | .browser_download_url' \
+            '.assets[] | select(.name | (contains("x86_64") and contains("darwin") and endswith(".tar.gz"))) | .browser_download_url' \
             upstream/starship-macos.tar.gz starship-macos
           pick3 "$STAR_JSON" \
-            '.assets[] | select(.name | (contains("pc-windows-msvc") and endswith(".zip"))) | .browser_download_url' \
-            '.assets[] | select(.name | (contains("windows") and endswith(".zip"))) | .browser_download_url' \
+            '.assets[] | select(.name | (contains("x86_64-pc-windows-msvc") and endswith(".zip"))) | .browser_download_url' \
+            '.assets[] | select(.name | (contains("x86_64") and contains("windows") and endswith(".zip"))) | .browser_download_url' \
             upstream/starship-windows.zip starship-windows
 
           # ---- Nushell (nushell/nushell) — Windows 原生默认 shell ------------
