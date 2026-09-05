@@ -62,14 +62,25 @@ set -gx XDG_CONFIG_HOME ~/.config
 #          普通终端（无 Zellij）→ 直接执行 herdr。
 # ------------------------------------------------------------------
 function herdr
-    if not command -q herdr
-        echo "herdr 未安装（~/.local/bin/herdr 或加入 PATH）" >&2
+    # 定位 herdr：优先 PATH，其次常见用户路径（zellij 新窗格可能不带 ~/.local/bin）
+    set -l h (command -s herdr)
+    if test -z "$h"
+        for cand in "$HOME/.local/bin/herdr" /usr/local/bin/herdr /usr/bin/herdr
+            if test -x "$cand"
+                set h "$cand"
+                break
+            end
+        end
+    end
+    if test -z "$h"
+        echo "herdr 未找到（安装到 ~/.local/bin 或加入 PATH 后重试）" >&2
         return 1
     end
     if set -q ZELLIJ
+        echo ">> 在悬浮窗中打开 herdr（$h）…"
         zellij action new-pane --floating --close-on-exit --name herdr \
-            --width 95% --height 95% --x 2% --y 2% -- command herdr
+            --width 95% --height 95% --x 2% --y 2% -- "$h"
     else
-        command herdr $argv
+        command "$h" $argv
     end
 end
