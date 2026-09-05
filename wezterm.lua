@@ -75,7 +75,14 @@ config.line_height = 1.1
 config.color_scheme = 'Catppuccin Mocha'
 config.scrollback_lines = 10000
 config.window_padding = { left = 10, right = 10, top = 10, bottom = 10 }
-config.window_decorations = 'TITLE | RESIZE'
+-- 窗口装饰：Windows 默认隐藏系统标题栏（更沉浸；仍可拖边框调整大小）；
+-- 若想要回系统标题栏，把下面 IS_WINDOWS 分支的 'RESIZE' 改回 'TITLE | RESIZE' 即可。
+-- macOS/Linux 保留系统标题栏（依赖其原生窗口按钮）。
+if IS_WINDOWS then
+  config.window_decorations = 'RESIZE'
+else
+  config.window_decorations = 'TITLE | RESIZE'
+end
 config.window_close_confirmation = 'NeverPrompt'
 config.hide_tab_bar_if_only_one_tab = true
 config.show_tab_index_in_tab_bar = true
