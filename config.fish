@@ -55,6 +55,8 @@ end
 # 全局环境变量（非交互也会生效）
 # ------------------------------------------------------------------
 set -gx XDG_CONFIG_HOME ~/.config
+# 用户本地工具（wznav / herdr / server-menu / wz-* 脚本）统一入口
+fish_add_path "$HOME/.local/bin" 2>/dev/null
 
 # ------------------------------------------------------------------
 # 2.5 层：herdr —— Zellij 内输入 herdr → 打开 ~95% 悬浮窗运行 herdr；
