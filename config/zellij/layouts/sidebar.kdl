@@ -1,6 +1,18 @@
-// Zellij 复合侧边栏布局（WezTerm4Neil 第二层）
-// 结构：左侧 20% 复合侧边栏（上 40% 快捷服务菜单 / 下 60% Yazi 文件树）+
-//       右侧 80% 主终端。参考：Byxs20/terminal_config / weterm4.md
+// Zellij 复合侧栏布局（WezTerm4Neil 第二层，2026-09-06 改造）
+//
+// 结构：左侧 20% 单 pane 自研 TUI `wznav`（合并了原 server-menu.sh + yazi）
+//       右侧 80% 主终端；顶部 tab-bar / 底部 status-bar 保留。
+//
+// 跑法：wznav 单二进制内部分上下两区——上半是服务器列表，下半是文件树。
+//       用 PATH 前缀（zellij 自身继承 Zellij 启动时环境）确保能找到 wznav。
+//       wznav 同时内嵌本地 ws 服务，端口见 WZNAV_WS / --ws-port。
+//
+// 错误处理：若 PATH 里没有 wznav，此 pane 会立即退出；zellij 会按
+//       pane_command_finder_failure_strategy 处理。建议安装时把 wznav
+//       复制到 ~/.local/bin（install.sh） 或 /usr/bin（.deb）。
+//
+// 历史：v1 = 上 40% server-menu.sh + 下 60% yazi（2026-09 之前）
+//       v2 = 单 pane wznav（本版本；详见 README & CODEX-WZNAV-REPORT.md）
 layout {
     default_tab_template {
         pane size=1 borderless=true {
@@ -14,17 +26,13 @@ layout {
 
     tab name="Workspace" {
         pane split_direction="vertical" {
-            // 左侧 20% 复合侧边栏
-            pane size="20%" split_direction="horizontal" {
-                // 左上 40%：快捷服务 / 命令启动菜单（用户可编辑 ~/.local/bin/server-menu.sh）
-                pane size="40%" name="🚀 快捷服务" {
-                    command "bash"
-                    args "-c" "~/.local/bin/server-menu.sh"
-                }
-                // 左下 60%：Yazi 文件树
-                pane size="60%" name="📁 文件浏览" command="yazi"
+            // 左侧 20% 单 pane = wznav（TUI 自适应上下分屏）
+            // 可选嵌入：没有 wznav 时回退提示 + shell，绝不拖累右栏。
+            pane size="20%" name="wznav" {
+                command "bash"
+                args "-lc" "if command -v wznav >/dev/null 2>&1; then exec wznav; else echo '⚠ wznav 未安装 — 右侧功能不受影响（装到 ~/.local/bin 后重进即热插入）'; exec fish 2>/dev/null || exec bash; fi"
             }
-            // 右侧 80%：主终端
+            // 右侧 80% 主终端
             pane name="💻 终端" focus=true
         }
     }

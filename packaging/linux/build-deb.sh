@@ -26,7 +26,7 @@
 set -euo pipefail
 
 # ---- 参数解析 ---------------------------------------------------------------
-VER=""; WEZTERM_DEB=""; FISH_TARBALL=""; FISH_DEB=""; STARSHIP_TAR=""; ZELLIJ_TAR=""; YAZI_ZIP=""
+VER=""; WEZTERM_DEB=""; FISH_TARBALL=""; FISH_DEB=""; STARSHIP_TAR=""; ZELLIJ_TAR=""; YAZI_ZIP=""; WZNAV_BIN=""
 CONFIG_DIR=""; FONTS_DIR=""; VERSIONS_TXT=""; LICENSES_DIR=""; OUT_DIR="$(pwd)"
 while [[ $# -gt 0 ]]; do
   case "$1" in
@@ -36,6 +36,7 @@ while [[ $# -gt 0 ]]; do
     --fish-deb)     FISH_DEB="$2"; shift 2 ;;
     --starship-tar) STARSHIP_TAR="$2"; shift 2 ;;
     --zellij-tar)   ZELLIJ_TAR="$2"; shift 2 ;;
+    --wznav-bin)    WZNAV_BIN="$2"; shift 2 ;;
     --yazi-zip)     YAZI_ZIP="$2"; shift 2 ;;
     --config-dir)   CONFIG_DIR="$2"; shift 2 ;;
     --fonts-dir)    FONTS_DIR="$2"; shift 2 ;;
@@ -124,6 +125,15 @@ if [[ -n "$YAZI_ZIP" ]]; then
   [[ -n "$YZ_BIN" ]] || err "yazi zip 中找不到 yazi 可执行文件"
   install -Dm755 "$YZ_BIN" "$STAGE/usr/bin/yazi"
   rm -rf "$TMPF"
+fi
+
+# ---- 4.7) wznav 自研侧栏 TUI 二进制 -> /usr/bin/wznav（可选；向后兼容）-------
+# 仅当 --wznav-bin 显式提供时才装。layout 默认靠 PATH 找 wznav；显式指定
+# 是为了在 .deb 安装后无需 fish 配置即可跑（PATH 由 wezterm 继承保证）。
+if [[ -n "$WZNAV_BIN" ]]; then
+  [[ -f "$WZNAV_BIN" ]] || err "wznav 二进制不存在: $WZNAV_BIN"
+  install -Dm755 "$WZNAV_BIN" "$STAGE/usr/bin/wznav"
+  echo "[build-deb] wznav 已装到 /usr/bin/wznav"
 fi
 
 # ---- 4) 移除上游 DEBIAN，装配我们自己的元数据 -------------------------------
