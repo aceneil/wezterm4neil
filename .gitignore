@@ -1,3 +1,5 @@
 # 本地构建产物 / 交付报告不入库
 bin/
 *-REPORT.md
+
+*CODEX*.md
