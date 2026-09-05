@@ -18,5 +18,8 @@ plugins {
 keybinds {
     normal {
         unbind "Alt f"
+        // Alt 系快捷：h/l/j/k 或方向键在窗格间移动（默认即有，保底列明）；
+        // Alt+t = 新开标签窗口（OS 不占用，可被终端接收）
+        bind "Alt t" { NewTab; }
     }
 }

@@ -9,6 +9,8 @@
 //	│ ..                    │
 //	│ dir1/                 │   ← same keys; Enter on file → wz-open.sh;
 //	│ dir2/                 │     Enter on dir  → navigate in
+//	│ ······                │   ← section divider
+//	│ ▶ Files (cwd: ~/)     │
 //	│ file.txt              │
 //	├───────────────────────┤
 //	│ ctx: local  | ? help  │
@@ -317,9 +319,9 @@ func (m *Model) handleMouse(msg tea.MouseMsg) (tea.Model, tea.Cmd) {
 			}
 			return m, nil
 		}
-		if y >= m.serverListEnd()+1 && y < m.height-1 {
-			m.focus = paneFiles
-			m.fileCur = clamp(y-(m.serverListEnd()+1), 0, max(0, len(m.fileView)-1))
+			if y >= m.serverListEnd()+2 && y < m.height-1 {
+				m.focus = paneFiles
+				m.fileCur = clamp(y-(m.serverListEnd()+2), 0, max(0, len(m.fileView)-1))
 			if double {
 				m.enterSelectedFile()
 			}
@@ -338,9 +340,10 @@ func (m *Model) handleMouse(msg tea.MouseMsg) (tea.Model, tea.Cmd) {
 	return m, nil
 }
 
-// serverListEnd returns the row index of the first FILE row (header).
-// Layout: title (row 0), server header (row 1), servers (rows 2..sEnd-1),
-// file header (row sEnd), files (rows sEnd+1..height-2), status (last).
+// serverListEnd returns the row index of the section divider (between
+// servers and the file header). Layout:
+// title (0), server header (1), servers (2..sEnd-1), divider (sEnd),
+// file header (sEnd+1), files (sEnd+2..height-2), status (last).
 func (m *Model) serverListEnd() int {
 	usable := m.height - 1 // leave 1 for status
 	if usable < 6 {
@@ -458,6 +461,10 @@ func (m *Model) View() string {
 		b.WriteByte('\n')
 	}
 
+	// Section divider between server list and file manager.
+	b.WriteString(pad("", m.width, '·'))
+	b.WriteByte('\n')
+
 	// File header.
 	fhead := fmt.Sprintf("Files (%s)", m.files.Current)
 	if m.focus == paneFiles {
@@ -467,8 +474,7 @@ func (m *Model) View() string {
 	b.WriteByte('\n')
 
 	// File rows.
-	usedRows := m.serverListEnd() + 1
-	fileRows := m.height - usedRows - 1
+	fileRows := m.height - m.serverListEnd() - 3
 	if fileRows < 1 {
 		fileRows = 1
 	}
