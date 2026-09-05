@@ -147,9 +147,11 @@ jobs:
             upstream/starship-windows.zip starship-windows
 
           # ---- CaskaydiaCove Nerd Font（子集：随三端安装包自动安装）--------
+          # 注意：官方资产名在不同版本会变（v3.4 前 = CaskaydiaCove.zip；
+          #   v3.5.1 起并入 CascadiaCode.zip，内含 CaskaydiaCoveNerdFont-*.ttf）
           FONT_JSON="$(api https://api.github.com/repos/ryanoasis/nerd-fonts/releases/latest)"
           echo "nerd-fonts latest tag: $(jq -r .tag_name <<<"$FONT_JSON")"
-          FONT_URL="$(firsturl '.assets[] | select(.name == "CaskaydiaCove.zip") | .browser_download_url' <<<"$FONT_JSON")"
+          FONT_URL="$(firsturl '.assets[] | select((.name | ascii_downcase) | (contains("caskaydiacove") or contains("cascadiacode")) and endswith(".zip")) | .browser_download_url' <<<"$FONT_JSON")"
           if [[ -z "$FONT_URL" ]]; then
             echo "✘ nerd-fonts: 找不到 CaskaydiaCove.zip 资产" >&2
             exit 1

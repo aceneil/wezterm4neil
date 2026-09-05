@@ -93,19 +93,25 @@ config.show_tab_index_in_tab_bar = true
 config.use_fancy_tab_bar = true
 -- inactive_pane_hsb 仅调暗“分屏中非活动窗格”，与标签栏无关（勿用它调标签栏）
 config.inactive_pane_hsb = { saturation = 0.9, brightness = 0.8 }
--- 标签栏配色：活动标签背景 = 终端底色 #1e1e2e（Catppuccin Mocha base），
--- 使导航栏与输入区融为一体；非活动标签用 mantle 暗一档。
-config.colors = {
-  tab_bar = {
-    background = '#1e1e2e',
-    active_tab = { bg_color = '#1e1e2e', fg_color = '#cdd6f4', intensity = 'Bold' },
-    inactive_tab = { bg_color = '#181825', fg_color = '#a6adc8' },
-    inactive_tab_hover = { bg_color = '#313244', fg_color = '#cdd6f4' },
-    new_tab = { bg_color = '#1e1e2e', fg_color = '#89b4fa' },
-    new_tab_hover = { bg_color = '#313244', fg_color = '#89b4fa' },
-    inactive_tab_edge = '#313244',
-  },
-}
+-- 标签栏配色：自动跟随当前配色方案底色（改 color_scheme 即同步，无需手写色值）。
+-- 原理：从内置方案表取出 background/foreground，再做微调派生非活动/悬停色。
+local _scheme = wezterm.color.get_builtin_schemes()['Catppuccin Mocha']
+if _scheme and _scheme.background then
+  local _bg = _scheme.background
+  local _c  = wezterm.color.parse(_bg)
+  local _fg = _scheme.foreground or '#cdd6f4'
+  config.colors = {
+    tab_bar = {
+      background = _bg,
+      active_tab = { bg_color = _bg, fg_color = _fg, intensity = 'Bold' },
+      inactive_tab = { bg_color = _c:darken(0.05):to_string(), fg_color = _fg },
+      inactive_tab_hover = { bg_color = _c:lighten(0.08):to_string(), fg_color = _fg },
+      new_tab = { bg_color = _bg, fg_color = _c:lighten(0.18):to_string() },
+      new_tab_hover = { bg_color = _c:lighten(0.08):to_string(), fg_color = _fg },
+      inactive_tab_edge = _c:darken(0.05):to_string(),
+    },
+  }
+end
 config.initial_cols = 140
 config.initial_rows = 30
 -- macOS 专属毛玻璃背景（其它平台自动忽略）
