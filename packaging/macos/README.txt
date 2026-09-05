@@ -14,6 +14,7 @@ WezTerm4Neil (macOS .dmg)
   wezterm.lua        WezTerm 配置（自动读取 ~/.ssh/config 生成 SSH 域）
   config.fish        fish 基础配置（别名 + 自动加载 Starship）
   starship.toml      Starship 提示符模板
+  fonts/             随包字体（CaskaydiaCove Nerd Font 子集，自动装到 ~/Library/Fonts）
   VERSIONS.txt       本 DMG 捆绑各组件的版本 / 来源 URL / 构建日期 / 仓库 commit
   licenses/          上游组件许可证（MIT / GPL-2 / ISC）
 

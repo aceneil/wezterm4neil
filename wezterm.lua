@@ -152,16 +152,32 @@ config.keys = {
 
 -- ----------------------------------------------------------------------------
 -- 4.5) 附加常用键位（来自 Byxs20/terminal_config 参考，跨平台安全子集）
---   说明：CTRL+T / ALT+W / CTRL+1..8 / 鼠标复制·开链接 / 窗口居中 在
+--   说明：CTRL+T / ALT+W / CTRL+1..8 / 鼠标复制·开链接 在
 --         macOS · Linux · Windows 语义一致，可直接使用；
---         原参考里的 WSL/kali/cmd/pwsh 标签快捷键仅 Windows 有意义且绑定具体
---         发行版，这里不引入——Windows 用户可用上方 launch_menu（CTRL+SHIFT+Space）
---         打开 PowerShell / Cmd。
+--         原参考里的 WSL/kali 标签快捷键绑定具体发行版，这里不引入。
+--         Windows 侧如需快速开 PowerShell / Cmd：上方 launch_menu
+--         （默认 CTRL+SHIFT+Space）或下方 CTRL+SHIFT+1/2 固定映射二选一。
 -- ----------------------------------------------------------------------------
 table.insert(config.keys, { key = 't', mods = 'CTRL', action = wezterm.action.SpawnTab 'DefaultDomain' })
 table.insert(config.keys, { key = 'w', mods = 'ALT', action = wezterm.action.CloseCurrentTab { confirm = false } })
 for i = 1, 8 do
   table.insert(config.keys, { key = tostring(i), mods = 'CTRL', action = wezterm.action.ActivateTab(i - 1) })
+end
+
+-- Windows 专用：CTRL+SHIFT+1/2 直接开 PowerShell / Cmd 新标签（固定映射，用户可改）。
+-- 说明：SHIFT+数字在 WezTerm 中按字符匹配（US 布局 Shift+1='!'、Shift+2='@'），
+--       故键位写 '!' / '@' 并带 CTRL|SHIFT；不写死任何 WSL 发行版或绝对路径。
+if IS_WINDOWS then
+  table.insert(config.keys, {
+    key = '!',
+    mods = 'CTRL|SHIFT',
+    action = wezterm.action.SpawnCommandInNewTab { args = { 'pwsh' } },
+  })
+  table.insert(config.keys, {
+    key = '@',
+    mods = 'CTRL|SHIFT',
+    action = wezterm.action.SpawnCommandInNewTab { args = { 'cmd' } },
+  })
 end
 
 config.mouse_bindings = {

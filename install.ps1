@@ -137,7 +137,10 @@ function Install-NuAutoload {
     if ($NuExePath -and (Test-Path $NuExePath)) {
         $markerDir = Join-Path $ConfigRoot 'wezterm4neil'
         New-Item -ItemType Directory -Path $markerDir -Force | Out-Null
-        Set-Content -Path (Join-Path $markerDir 'nu-path.txt') -Value $NuExePath -Encoding ascii
+        # 无 BOM UTF-8 写入：PS5.1 的 -Encoding ascii 会破坏中文安装目录/用户名，
+        # -Encoding utf8 会带 BOM（wezterm.lua 读首行会把 BOM 当路径一部分→找不到文件）；
+        # 与上方 starship.nu 同款 .NET 写法，PS5.1/7+ 均安全。
+        [IO.File]::WriteAllText((Join-Path $markerDir 'nu-path.txt'), $NuExePath, [Text.UTF8Encoding]::new($false))
         Write-Log "已记录 Nu 实际路径: $NuExePath"
     }
     Write-Info "WezTerm 将默认打开 Nushell + Starship（开箱即用）"

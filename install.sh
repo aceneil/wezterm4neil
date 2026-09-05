@@ -120,8 +120,15 @@ for item in "${ITEMS[@]}"; do
 done
 
 # ---- Nerd Font 自动安装（fonts/ 与脚本同级时：.deb=/etc/wezterm4neil/fonts、DMG=根 fonts）----
+# 目标目录按平台区分：macOS 的 WezTerm 用 CoreText 枚举字体，必须装到
+# ~/Library/Fonts（~/.local/share/fonts 是 fontconfig 约定，装那里 mac 上读不到）；
+# Linux 走 XDG 字体目录（fc-cache 刷新 fontconfig 缓存）。
 if [[ -d "$SCRIPT_DIR/fonts" ]]; then
-  FONTS_TARGET="${XDG_DATA_HOME:-$HOME/.local/share}/fonts"
+  if [[ "$(uname -s)" == "Darwin" ]]; then
+    FONTS_TARGET="${HOME}/Library/Fonts"
+  else
+    FONTS_TARGET="${XDG_DATA_HOME:-$HOME/.local/share}/fonts"
+  fi
   mkdir -p "$FONTS_TARGET"
   installed=0
   for f in "$SCRIPT_DIR"/fonts/*.ttf; do
@@ -130,6 +137,28 @@ if [[ -d "$SCRIPT_DIR/fonts" ]]; then
   done
   if command -v fc-cache >/dev/null 2>&1; then fc-cache -f >/dev/null 2>&1 || true; fi
   log "Nerd Font 已安装到 $FONTS_TARGET（$installed 个）"
+fi
+
+# ---- 桌面启动图标（仅 Linux；与 Windows 安装器创建的桌面快捷方式观感一致）----
+if [[ "$(uname -s)" != "Darwin" ]]; then
+  DESKTOP_DIR="$(xdg-user-dir DESKTOP 2>/dev/null || true)"
+  if [[ -z "$DESKTOP_DIR" || ! -d "$DESKTOP_DIR" ]]; then
+    DESKTOP_DIR="$HOME/Desktop"
+  fi
+  if [[ -d "$DESKTOP_DIR" ]]; then
+    cat > "$DESKTOP_DIR/WezTerm4Neil.desktop" <<'EOF'
+[Desktop Entry]
+Type=Application
+Name=WezTerm4Neil
+Comment=开箱即用的 WezTerm + Fish + Starship 终端
+Exec=/usr/bin/wezterm-gui
+Icon=org.wezfurlong.wezterm
+Terminal=false
+Categories=System;TerminalEmulator;
+EOF
+    chmod +x "$DESKTOP_DIR/WezTerm4Neil.desktop"
+    log "已创建桌面图标: $DESKTOP_DIR/WezTerm4Neil.desktop"
+  fi
 fi
 
 # .deb 环境下额外提示捆绑的 VERSIONS.txt

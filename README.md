@@ -4,7 +4,7 @@
 
 **开箱即用的跨平台终端环境：WezTerm + Fish / Nushell(Win) + Starship 一键安装包**
 
-适用于 macOS · Windows · Linux，每周自动更新，拿走就能用。
+适用于 Windows · Linux（每周自动更新，拿走就能用）；macOS 规划中，见下方说明。
 
 [![GitHub Release](https://img.shields.io/badge/Release-下载安装包-blue?logo=github)](https://github.com/aceneil/wezterm4neil/releases)
 [![Build](https://github.com/aceneil/wezterm4neil/actions/workflows/release.yml/badge.svg)](https://github.com/aceneil/wezterm4neil/actions/workflows/release.yml)
@@ -14,95 +14,136 @@
 
 ---
 
-WezTerm4Neil 帮你把几款好评如潮的开源终端工具组合成一套**好看、顺手、跨平台一致**的终端环境：
+## 这是什么？
 
-- 🚀 **[WezTerm](https://wezterm.org/)** —— 现代 GPU 加速终端模拟器，自动读取你 `~/.ssh/config` 里的主机别名，一键 SSH 直达
-- 🐟 **[Fish Shell](https://fishshell.com/)** —— macOS / Linux 的默认 shell：自动补全、语法高亮、拼写建议
-- 🐚 **[Nushell](https://www.nushell.sh/)** —— Windows 的默认 shell：**原生跨平台**的现代 shell，无需 WSL
-- ✨ **[Starship](https://starship.rs/)** —— 极速、可定制的跨 shell 提示符（显示 git 分支、目录、运行时间等）
+WezTerm4Neil 是一个**跨平台终端环境（Cross-platform Terminal Environment）**一键安装包：
+把几款好评如潮的开源终端工具（Terminal + Shell + Prompt）打包在一起，安装后不用折腾任何配置，
+Windows、macOS、Linux 三端长得一样、快捷键一样、开箱即用。
 
-**不需要折腾配置文件**：每周末 GitHub Actions 自动从上游拉取最新版软件，打包成安装包放到 [Releases](https://github.com/aceneil/wezterm4neil/releases)。
+## ✨ 特性一览
 
-![WezTerm + Fish + Starship 终端效果预览（每周自动更新）](assets/preview.gif)
+- 🚀 **[WezTerm](https://wezterm.org/)** —— 现代 GPU 加速终端模拟器（Terminal Emulator），
+  自动读取你的 `~/.ssh/config`，菜单里一键 SSH 直达任意主机
+- 🐟 **[Fish Shell](https://fishshell.com/)** —— macOS / Linux 的默认 Shell：开箱即用的自动补全、语法高亮、拼写建议
+- 🐚 **[Nushell](https://www.nushell.sh/)** —— Windows 的默认 Shell：**原生跨平台**的现代 Shell，无需 WSL
+- ✨ **[Starship](https://starship.rs/)** —— 极速、可定制的跨 Shell 提示符（Prompt），显示 git 分支、目录、语言版本等
+- 🔤 **CaskaydiaCove Nerd Font** —— 随包自动安装的图标字体，让终端里的箭头、图标、徽标都正常显示
+- ⏰ **每周自动更新** —— GitHub Actions 每周自动从上游拉取最新版打包；上游发布新版后，下一轮自动构建就会带上
+- 📦 **离线可装** —— 每个安装包都内置软件本体，下载后不联网也能装
 
-## ✨ 自动更新，每周一个新包
+![WezTerm + Fish + Starship 终端效果预览（每周自动渲染更新）](assets/preview.gif)
 
-- ⏰ **每周一自动构建**（北京时间 08:00），上游出新版就跟着出
-- 👆 想立刻更新？在 Actions 页点一下「Run workflow」
-- 📦 每个安装包都**内置最新软件本体**，下载后离线可装
-- 📋 每个包内附 `VERSIONS.txt`：这次捆绑了哪些版本、来源在哪
+## 🖥️ 支持平台与内含组件
 
-想知道自动化具体干了什么？看 **[PIPELINE.md](PIPELINE.md)**（流程图 + 每个环节说明）。
+| 平台 | 安装包 | 默认 Shell | 随包组件 |
+| :--- | :--- | :--- | :--- |
+| 🐧 Linux | `.deb` 安装包 | Fish | WezTerm + Fish + Starship + 字体 |
+| 🍎 macOS | `.dmg`（**规划中**） | Fish | 组件/脚本已就绪，待 Apple 真机验收后发布 |
+
+> 📌 macOS：目前处于**规划中** —— 流水线与安装脚本已备好（见 [PIPELINE.md](PIPELINE.md)），
+> 但因团队暂无 Apple 真机可验收，暂不发布 `.dmg`；待有真机后启用并纳入每周自动构建。
+| 🪟 Windows | `.exe` 安装器 | Nushell | WezTerm + Nushell + Starship + 字体 |
+
+每个安装包内都附一份 `VERSIONS.txt`：这次捆绑了哪些组件的哪个版本、来源在哪。
+（Windows 默认用 Nushell 是因为 fish 官方不提供 Windows 原生版——Nushell 同样原生、无需 WSL，体验不打折。）
 
 ## 🚀 快速开始
 
-到 [Releases](https://github.com/aceneil/wezterm4neil/releases) 下载对应平台安装包：
+到 [Releases](https://github.com/aceneil/wezterm4neil/releases) 下载对应平台的安装包即可。
 
-### Linux
+### 🐧 Linux（.deb）
+
 ```bash
 sudo apt install ./wezterm4neil_*.deb
-# 装完后把配置激活到你的用户目录（用你自己的账号执行）：
-bash /etc/wezterm4neil/install.sh
-wezterm
+# 装完后，用【你自己的账号】把配置激活到用户目录：
+bash /etc/wezterm4neil/install.sh      # 拷贝配置；想软链接用 --link
+wezterm                                # 打开终端
 ```
-> ⚠️ 本包会替换系统里官方安装的 wezterm/fish/starship（见包内 postinst 提示与 [PIPELINE.md](PIPELINE.md) 中的恢复说明）。
 
-### macOS
-1. 双击下载的 `.dmg`，把内容拖到桌面/下载目录
+> ⚠️ 本包会替换系统里官方安装的 wezterm/fish/starship 三个命令（见安装时的提示；
+> 卸载后按官方渠道重装即可恢复）。
+
+### 🍎 macOS（.dmg）— 规划中（有 Apple 真机后启用）
+
+> 安装步骤已按真实流程编写并保留于此，作为 macOS 版的目标行为：
+> 待有真机完成验收后，这些步骤即对应正式发布的 `.dmg`。
+
+1. 双击下载的 `.dmg`，把内容拖到桌面或下载目录
 2. 双击里面的 **`install.command`**，按提示输入管理员密码
-3. 脚本自动：安装 WezTerm.app → 装好 starship（和缺失的 fish）→ 配置落到 `~/.config`
-4. 打开 WezTerm 即可
+3. 脚本自动完成：WezTerm.app → 应用程序目录 → 装好 starship（和缺失的 fish）→ 配置落到 `~/.config`
+4. 打开 WezTerm 即可（首次如被 Gatekeeper 拦截：右键 WezTerm.app → 打开）
 
-### Windows
-1. 双击 `wezterm4neil-*.exe`（或命令行加 `/S` 静默安装）
-2. 安装器自动：装到 `%LOCALAPPDATA%\Programs\wezterm4neil` → 注册 PATH → 写入 Nu 自动加载
-3. 打开 WezTerm —— **默认就是 Nushell + Starship**（nu.exe 已随包内置，真正的开箱即用，不需要 WSL）
+### 🪟 Windows（.exe）
 
-#### 🐚 Nushell 与 Starship 是怎么生效的
-安装器会替你做三件事（等价于 Nu 官方推荐的配置步骤）：
-1. 把随包的 `nu.exe` 装好并加入 PATH
-2. 在 Nu 自动加载目录写入别名：`%APPDATA%\nushell\vendor\autoload\wezterm4neil.nu`
-3. 用随包 starship 现场生成提示符：`%APPDATA%\nushell\vendor\autoload\starship.nu`
+1. 双击 `wezterm4neil-*.exe`（或命令行加 `/S` 静默安装；默认装到
+   `%LOCALAPPDATA%\Programs\wezterm4neil`，安装时可自定义目录）
+2. 安装器自动完成：注册 PATH → 写入 `~/.config` 配置 → 安装字体 → 配置 Nushell 提示符
+3. 从开始菜单或桌面快捷方式打开 WezTerm —— **默认就是 Nushell + Starship**，真正的开箱即用
 
-（Nu 每次启动会自动加载该目录下所有 `.nu` 文件。）
+### 📄 只想用配置文件？（软件已自己装好）
 
-> 如果你没用本安装包、而是单独装的 Nushell，可以手动执行 Nu 官方推荐的两行：
-> ```nu
-> mkdir ($nu.data-dir | path join "vendor/autoload")
-> starship init nu | save -f ($nu.data-dir | path join "vendor/autoload/starship.nu")
-> ```
-
-> 🐟 想用 fish？macOS / Linux 安装包默认就是 fish；Windows 因 fish 官方不提供原生版，
-> 所以默认 Nushell（原生、无需 WSL）——体验不打折，还省一层虚拟机。
-
-### 只用配置、软件自己装好了？
 ```bash
 git clone https://github.com/aceneil/wezterm4neil.git
 cd wezterm4neil
-./install.sh            # 拷贝配置到 ~/.config（macOS/Linux）
-# ./install.sh --link   # 或者用软链接，配置文件更新后即时生效
-# Windows: 运行 install.ps1
+./install.sh            # macOS / Linux：拷贝配置到 ~/.config
+# ./install.sh --link   # 或者软链接：仓库里改完立即生效
+# Windows：以 PowerShell 运行 .\install.ps1
 ```
 
-## 🎨 里面都有什么配置
+## 🎨 想自定义？改这几个文件就够了
 
-| 文件 | 作用 |
+| 文件 | 管什么 |
 | :--- | :--- |
-| `wezterm.lua` | WezTerm：自动读取 `~/.ssh/config` 生成 SSH 域、字体与外观、分屏快捷键（Windows 默认打开 Nushell） |
-| `config.fish` | Fish（macOS / Linux）：常用别名（`ll` / git 快捷等）+ 自动加载 Starship |
-| `nushell.nu` | Nushell（Windows）：常用别名，装进 Nu 自动加载目录 |
-| `starship.toml` | Starship：干净清爽的提示符模板（可自定义） |
+| `wezterm.lua` | 终端外观（配色/字体/字号）、标签栏、快捷键、鼠标行为、Windows 默认 Shell（Nushell） |
+| `config.fish` | Fish（macOS / Linux）：别名 + 自动加载 Starship |
+| `nushell.nu` | Nushell（Windows）：别名 |
+| `starship.toml` | 提示符（Prompt）长什么样：显示哪些模块、什么配色 |
 
-想改配色/字体/快捷键？直接改这几个文件后 `git push`，几十分钟后 Releases 就会出一版新安装包。
+改完两个选择：**本地生效**（`./install.sh --copy` / `--link` 重新部署到 `~/.config`），
+或 **推送 GitHub**——几分钟后 Actions 会自动构建一版含你改动的新安装包。
 
-## ❓ 常见问题
+## ❓ 常见问题（FAQ）
 
-- **安装后没生效？** 打开的是新终端吗？Starship 只在新的 shell 会话生效。
-- **想恢复官方版 wezterm/fish/starship？** 卸载本包后按官方渠道重装即可（命令见 [PIPELINE.md](PIPELINE.md) / 包内 postinst 提示）。
-- **上游改名导致构建失败？** 流水线会自动列出上游实际资产名并明确报错，不会静默产出坏包。
+- **Nerd Font 字体会自动装吗？装到哪？**
+  会。Windows → `%LOCALAPPDATA%\Microsoft\Windows\Fonts`；macOS → `~/Library/Fonts`；
+  Linux → `~/.local/share/fonts`。想让终端更漂亮，可以改 `wezterm.lua` 里的字体链。
 
-## 🤝 贡献 & 许可
+- **提示符上的时间不显示？**
+  按用户偏好默认关闭了。想打开：编辑 `starship.toml`，把 `[time]` 下 `disabled = true` 改成 `false`。
 
-配置、脚本、流水线全部开源，欢迎提 Issue / PR / ⭐ Star。
+- **Windows 想找回系统标题栏？**
+  编辑 `wezterm.lua`，找到 `IS_WINDOWS` 分支里的 `window_decorations = 'RESIZE'`，
+  改成 `'TITLE | RESIZE'` 即可（默认隐藏标题栏是为了更沉浸 + 用标签栏拖拽窗口）。
 
-[LICENSE](LICENSE) · MIT License · © aceneil
+- **改完配置没生效？**
+  WezTerm 里按 `Ctrl+Shift+R` 重载配置（macOS 用 `Cmd+Shift+R`）；如果是 shell 提示符，
+  记得开一个**新终端**——Starship 只在新的 Shell 会话里生效。
+
+- **Windows 想用回 PowerShell 当默认？**
+  编辑 `~/.config/wezterm/wezterm.lua` 里的 `default_prog`；或删掉
+  `~/.config/wezterm4neil/nu-path.txt` 后重跑 `install.ps1`。
+  平时想快速开 PowerShell / Cmd：`Ctrl+Shift+Space` 启动菜单，或 `Ctrl+Shift+1`（PowerShell）、`Ctrl+Shift+2`（Cmd）。
+
+- **不想要 Starship，想用纯文本短路径提示符？**
+  `nushell.nu` 里有注释好的三行短路径写法（Byxs20 风格），取消注释并把
+  `%APPDATA%\nushell\vendor\autoload\starship.nu` 移走即可。
+
+- **安装包坏了 / 构建失败了？**
+  流水线不会静默产出坏包：上游改版导致失败时会列出上游实际资产名并明确报错。
+  也可以去 [Actions](https://github.com/aceneil/wezterm4neil/actions) 页点「Run workflow」手动重跑。
+
+## 🤝 开发 & 贡献
+
+- 整套流水线每周自动构建三端安装包，细节见 **[PIPELINE.md](PIPELINE.md)**（触发方式 / 7 个构建步骤 / 常见失败对照）。
+- 想改进配色、快捷键、别名？直接改对应文件提 PR；想手动触发一次构建？Actions 页点按钮即可。
+- 觉得好用请 ⭐ Star，遇到问题欢迎提 [Issue](https://github.com/aceneil/wezterm4neil/issues)。
+
+## 📄 许可证与致谢
+
+- 本仓库配置与脚本：**MIT License**（见 [LICENSE](LICENSE)），© aceneil。
+- 配置灵感参考自 [Byxs20/terminal_config](https://github.com/Byxs20/terminal_config)
+  （wezterm / nushell 部分；已按本项目「跨平台 + 无硬编码路径」的护栏裁剪改写）。
+- 内置组件均为开源软件，各自许可证见安装包内 `licenses/`：
+  [WezTerm](https://github.com/wezterm/wezterm)（MIT）· [Fish](https://github.com/fish-shell/fish-shell)（GPL-2）·
+  [Nushell](https://github.com/nushell/nushell)（MIT）· [Starship](https://github.com/starship/starship)（ISC）·
+  [Nerd Fonts](https://github.com/ryanoasis/nerd-fonts)（MIT）· 预览图录制 [VHS](https://github.com/charmbracelet/vhs)（MIT）
