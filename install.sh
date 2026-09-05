@@ -123,12 +123,15 @@ for item in "${ITEMS[@]}"; do
   install_one "$src" "$dst_dir" "$dst_file"
 done
 
-# 第二层 Zellij 布局用的「快捷服务菜单」脚本 → ~/.local/bin（可执行）
-if [[ -f "$SRC_DIR/scripts/server-menu.sh" ]]; then
+# 配套脚本（server-menu 远程菜单 / wz-open 文件打开器…）→ ~/.local/bin（可执行）
+if [[ -d "$SRC_DIR/scripts" ]]; then
   mkdir -p "$HOME/.local/bin"
-  cp -f "$SRC_DIR/scripts/server-menu.sh" "$HOME/.local/bin/server-menu.sh"
-  chmod +x "$HOME/.local/bin/server-menu.sh"
-  log "已部署服务菜单脚本: ~/.local/bin/server-menu.sh"
+  for f in "$SRC_DIR"/scripts/*.sh; do
+    [[ -e "$f" ]] || continue
+    cp -f "$f" "$HOME/.local/bin/$(basename "$f")"
+    chmod +x "$HOME/.local/bin/$(basename "$f")"
+  done
+  log "已部署脚本到 ~/.local/bin: $(ls "$SRC_DIR"/scripts | tr '\n' ' ')"
 fi
 
 # ---- Nerd Font 自动安装（fonts/ 与脚本同级时：.deb=/etc/wezterm4neil/fonts、DMG=根 fonts）----
