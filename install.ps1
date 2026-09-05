@@ -128,8 +128,9 @@ function Install-NuAutoload {
     $star = Join-Path $RootDir 'starship\starship.exe'
     if (-not (Test-Path $star)) { $star = Join-Path $RootDir 'starship.exe' }
     if (Test-Path $star) {
-        $initLines = & $star init nu
-        $initLines | Set-Content -Path (Join-Path $nuAuto 'starship.nu') -Encoding utf8
+        $initLines = (& $star init nu) -join [Environment]::NewLine
+        # Nu 不认 UTF-8 BOM：用无 BOM 写入，避免把首行注释当命令
+        [IO.File]::WriteAllText((Join-Path $nuAuto 'starship.nu'), $initLines, [Text.UTF8Encoding]::new($false))
         Write-Log "Nu starship 提示符已写入: vendor\autoload\starship.nu"
     }
     # 记录实际 nu.exe 路径（供 wezterm.lua 作为默认 shell；自定义安装目录同样适用）
