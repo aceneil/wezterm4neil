@@ -217,6 +217,25 @@ if IS_WINDOWS then
   if nu_exe and file_exists(nu_exe) then
     config.default_prog = { nu_exe }
   end
+else
+  -- 第二层：Zellij 复合侧边栏（仅 Linux/macOS；Zellij 无 Windows 原生版）。
+  -- 若系统存在 zellij 且布局已部署 → 默认拉起 `zellij --layout sidebar`；
+  -- 否则回退用户默认 shell（fish/bash），保证“只用配置文件”模式也不崩。
+  local function file_exists(p)
+    local fh = io.open(p, 'r')
+    if fh then fh:close(); return true end
+    return false
+  end
+  local home = os.getenv('HOME') or ''
+  local zellij_bin
+  for _, p in ipairs({ '/usr/bin/zellij', '/usr/local/bin/zellij', home .. '/.local/bin/zellij' }) do
+    if file_exists(p) then zellij_bin = p; break end
+  end
+  local layout_in_home = file_exists(home .. '/.config/zellij/layouts/sidebar.kdl')
+  local layout_in_skel = file_exists('/etc/wezterm4neil/skel/config/zellij/layouts/sidebar.kdl')
+  if zellij_bin and (layout_in_home or layout_in_skel) then
+    config.default_prog = { zellij_bin, '--layout', 'sidebar' }
+  end
 end
 
 -- ----------------------------------------------------------------------------

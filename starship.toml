@@ -9,6 +9,7 @@ $directory\
 [](fg:#DA627D bg:#FCA17D)\
 $git_branch\
 $git_status\
+${custom.zellij}\
 [](fg:#FCA17D bg:#86BBD8)\
 $c\
 $elixir\
@@ -161,3 +162,11 @@ disabled = true
 time_format = "%R" # Hour:Minute Format
 style = "bg:#33658A"
 format = '[ ♥ $time ]($style)'
+
+# Zellij 会话徽标（在 Zellij 内自动显示会话名）
+[custom.zellij]
+symbol = ""
+command = "echo $ZELLIJ_SESSION_NAME"
+when = "test -n \"$ZELLIJ\""
+style = "bold green"
+format = "[$symbol($output)]($style) "

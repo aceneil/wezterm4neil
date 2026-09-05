@@ -168,6 +168,22 @@ jobs:
           fi
           echo "---- fonts ----"; ls -la fonts
 
+          # ---- Zellij (zellij-org/zellij) — 第二层多路复用器（Linux/macOS；Win 无原生版）----
+          ZJ_JSON="$(api https://api.github.com/repos/zellij-org/zellij/releases/latest)"
+          echo "zellij latest tag: $(jq -r .tag_name <<<"$ZJ_JSON")"
+          pick3 "$ZJ_JSON" \
+            '.assets[] | select(.name | ((contains("x86_64-unknown-linux-musl") and endswith(".tar.gz")) and ((contains("no-web") | not)))) | .browser_download_url' \
+            '.assets[] | select(.name | ((contains("x86_64-unknown-linux") and endswith(".tar.gz")) and ((contains("no-web") | not)))) | .browser_download_url' \
+            upstream/zellij-linux.tar.gz zellij-linux
+
+          # ---- Yazi (sxyazi/yazi) — 文件管理器（侧边栏）----
+          YZ_JSON="$(api https://api.github.com/repos/sxyazi/yazi/releases/latest)"
+          echo "yazi latest tag: $(jq -r .tag_name <<<"$YZ_JSON")"
+          pick3 "$YZ_JSON" \
+            '.assets[] | select(.name | (contains("x86_64-unknown-linux-gnu") and endswith(".zip"))) | .browser_download_url' \
+            '.assets[] | select(.name | (contains("x86_64") and contains("linux") and endswith(".zip"))) | .browser_download_url' \
+            upstream/yazi-linux.zip yazi-linux
+
           # ---- Nushell (nushell/nushell) — Windows 原生默认 shell ------------
           NUS_JSON="$(api https://api.github.com/repos/nushell/nushell/releases/latest)"
           NUS_VER="$(jq -r .tag_name <<<"$NUS_JSON")"
@@ -340,6 +356,8 @@ jobs:
             --starship-tar dl/upstream/starship-linux.tar.gz \
             --config-dir "$GITHUB_WORKSPACE" \
             --fonts-dir dl/fonts \
+            --zellij-tar dl/upstream/zellij-linux.tar.gz \
+            --yazi-zip dl/upstream/yazi-linux.zip \
             --versions-txt dl/VERSIONS.txt \
             --licenses-dir dl/licenses \
             --out .
@@ -350,7 +368,7 @@ jobs:
           DEB="$(ls wezterm4neil_*.deb)"
           echo "DEB=$DEB"
           DEBLIST="$(dpkg-deb -c "$DEB")"
-          for bin in /usr/bin/wezterm /usr/bin/wezterm-gui /usr/bin/fish /usr/bin/starship /etc/wezterm4neil/VERSIONS.txt /etc/wezterm4neil/skel/wezterm.lua; do
+          for bin in /usr/bin/wezterm /usr/bin/wezterm-gui /usr/bin/fish /usr/bin/starship /usr/bin/zellij /usr/bin/yazi /etc/wezterm4neil/VERSIONS.txt /etc/wezterm4neil/skel/wezterm.lua; do
             grep -q "$bin" <<<"$DEBLIST" && echo "  ✔ $bin" || { echo "  ✘ 缺失 $bin"; exit 1; }
           done
 

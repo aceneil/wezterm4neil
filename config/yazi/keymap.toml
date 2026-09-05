@@ -1,0 +1,6 @@
+# Yazi 快捷键（与 Zellij 联动）：选中脚本/文件后按 r s →
+# 在右侧新 Zellij 窗格中运行。参考：Byxs20/terminal_config / weterm4.md
+[[manager.prepend_keymap]]
+on   = [ "r", "s" ]
+exec = 'shell "zellij run --direction right -- bash $0" --confirm'
+desc = "在右侧 Zellij 窗格运行当前选中的脚本"

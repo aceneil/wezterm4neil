@@ -1,0 +1,14 @@
+// Zellij 主配置（WezTerm4Neil 第二层）
+// 文档/布局细节见 config/zellij/layouts/sidebar.kdl 与仓库 README。
+// 参考：Byxs20/terminal_config
+theme "default"
+
+// 默认 shell（与安装包第三层一致：macOS/Linux = fish）
+default_shell "fish"
+// 打开 zellij 时默认启用复合侧边栏布局
+default_layout "sidebar"
+
+plugins {
+    tab-bar location="zellij:tab-bar"
+    status-bar location="zellij:status-bar"
+}

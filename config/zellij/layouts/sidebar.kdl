@@ -1,0 +1,31 @@
+// Zellij 复合侧边栏布局（WezTerm4Neil 第二层）
+// 结构：左侧 20% 复合侧边栏（上 40% 快捷服务菜单 / 下 60% Yazi 文件树）+
+//       右侧 80% 主终端。参考：Byxs20/terminal_config / weterm4.md
+layout {
+    default_tab_template {
+        pane size=1 borderless=true {
+            plugin location="zellij:tab-bar"
+        }
+        children
+        pane size=1 borderless=true {
+            plugin location="zellij:status-bar"
+        }
+    }
+
+    tab name="Workspace" {
+        pane split_direction="vertical" {
+            // 左侧 20% 复合侧边栏
+            pane size="20%" split_direction="horizontal" {
+                // 左上 40%：快捷服务 / 命令启动菜单（用户可编辑 ~/.local/bin/server-menu.sh）
+                pane size="40%" name="🚀 快捷服务" {
+                    command "bash"
+                    args "-c" "~/.local/bin/server-menu.sh"
+                }
+                // 左下 60%：Yazi 文件树
+                pane size="60%" name="📁 文件浏览" command="yazi"
+            }
+            // 右侧 80%：主终端
+            pane name="💻 终端" focus=true
+        }
+    }
+}

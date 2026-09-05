@@ -26,7 +26,7 @@
 set -euo pipefail
 
 # ---- 参数解析 ---------------------------------------------------------------
-VER=""; WEZTERM_DEB=""; FISH_TARBALL=""; FISH_DEB=""; STARSHIP_TAR=""
+VER=""; WEZTERM_DEB=""; FISH_TARBALL=""; FISH_DEB=""; STARSHIP_TAR=""; ZELLIJ_TAR=""; YAZI_ZIP=""
 CONFIG_DIR=""; FONTS_DIR=""; VERSIONS_TXT=""; LICENSES_DIR=""; OUT_DIR="$(pwd)"
 while [[ $# -gt 0 ]]; do
   case "$1" in
@@ -35,6 +35,8 @@ while [[ $# -gt 0 ]]; do
     --fish-tarball) FISH_TARBALL="$2"; shift 2 ;;
     --fish-deb)     FISH_DEB="$2"; shift 2 ;;
     --starship-tar) STARSHIP_TAR="$2"; shift 2 ;;
+    --zellij-tar)   ZELLIJ_TAR="$2"; shift 2 ;;
+    --yazi-zip)     YAZI_ZIP="$2"; shift 2 ;;
     --config-dir)   CONFIG_DIR="$2"; shift 2 ;;
     --fonts-dir)    FONTS_DIR="$2"; shift 2 ;;
     --versions-txt) VERSIONS_TXT="$2"; shift 2 ;;
@@ -100,6 +102,30 @@ STAR_BIN="$(find "$TMPF" -maxdepth 2 -type f -name starship | head -n1)"
 install -Dm755 "$STAR_BIN" "$STAGE/usr/bin/starship"
 rm -rf "$TMPF"
 
+# ---- 4.5) Zellij 官方二进制 -> /usr/bin/zellij（第二层；仅 Linux/macOS）------
+if [[ -n "$ZELLIJ_TAR" ]]; then
+  [[ -f "$ZELLIJ_TAR" ]] || err "zellij tar 不存在: $ZELLIJ_TAR"
+  echo "[build-deb] zellij 官方 tar.gz -> /usr/bin/zellij: $ZELLIJ_TAR"
+  TMPF="$(mktemp -d /tmp/wz4n-zj.XXXXXX)"
+  tar -xzf "$ZELLIJ_TAR" -C "$TMPF"
+  ZJ_BIN="$(find "$TMPF" -maxdepth 2 -type f -name zellij | head -n1)"
+  [[ -n "$ZJ_BIN" ]] || err "zellij tar 中找不到 zellij 可执行文件"
+  install -Dm755 "$ZJ_BIN" "$STAGE/usr/bin/zellij"
+  rm -rf "$TMPF"
+fi
+
+# ---- 4.6) Yazi 官方 zip -> /usr/bin/yazi（文件管理；侧边栏用）----------------
+if [[ -n "$YAZI_ZIP" ]]; then
+  [[ -f "$YAZI_ZIP" ]] || err "yazi zip 不存在: $YAZI_ZIP"
+  echo "[build-deb] yazi 官方 zip -> /usr/bin/yazi: $YAZI_ZIP"
+  TMPF="$(mktemp -d /tmp/wz4n-yz.XXXXXX)"
+  unzip -q "$YAZI_ZIP" -d "$TMPF"
+  YZ_BIN="$(find "$TMPF" -maxdepth 3 -type f -name yazi | head -n1)"
+  [[ -n "$YZ_BIN" ]] || err "yazi zip 中找不到 yazi 可执行文件"
+  install -Dm755 "$YZ_BIN" "$STAGE/usr/bin/yazi"
+  rm -rf "$TMPF"
+fi
+
 # ---- 4) 移除上游 DEBIAN，装配我们自己的元数据 -------------------------------
 rm -rf "$STAGE/DEBIAN"
 mkdir -p "$STAGE/DEBIAN"
@@ -117,6 +143,14 @@ done
 [[ -f "$CONFIG_DIR/install.sh" ]] && install -Dm755 "$CONFIG_DIR/install.sh" "$STAGE/etc/wezterm4neil/install.sh"
 cp "$VERSIONS_TXT" "$STAGE/etc/wezterm4neil/VERSIONS.txt"
 
+# 第二层/配套配置树（Zellij 布局 + Yazi 键位 + server-menu 脚本）→ skel
+for sub in config/zellij config/yazi scripts; do
+  if [[ -e "$CONFIG_DIR/$sub" ]]; then
+    mkdir -p "$STAGE/etc/wezterm4neil/skel/$sub"
+    cp -r "$CONFIG_DIR/$sub"/. "$STAGE/etc/wezterm4neil/skel/$sub/"
+  fi
+done
+
 # Nerd Font 子集（供 install.sh 自动装到 ~/.local/share/fonts）→ /etc/wezterm4neil/fonts
 if [[ -n "$FONTS_DIR" && -d "$FONTS_DIR" ]]; then
   mkdir -p "$STAGE/etc/wezterm4neil/fonts"
@@ -131,6 +165,10 @@ cat > "$STAGE/DEBIAN/conffiles" <<'EOF'
 /etc/wezterm4neil/skel/wezterm.lua
 /etc/wezterm4neil/skel/config.fish
 /etc/wezterm4neil/skel/starship.toml
+/etc/wezterm4neil/skel/config/zellij/config.kdl
+/etc/wezterm4neil/skel/config/zellij/layouts/sidebar.kdl
+/etc/wezterm4neil/skel/config/yazi/keymap.toml
+/etc/wezterm4neil/skel/scripts/server-menu.sh
 EOF
 
 # 上游许可证 -> /usr/share/doc/wezterm4neil/

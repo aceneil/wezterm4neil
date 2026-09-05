@@ -70,6 +70,9 @@ ITEMS=(
   "wezterm.lua|wezterm|wezterm.lua"
   "config.fish|fish|config.fish"
   "starship.toml|.|starship.toml"
+  "config/zellij/config.kdl|zellij|config.kdl"
+  "config/zellij/layouts/sidebar.kdl|zellij/layouts|sidebar.kdl"
+  "config/yazi/keymap.toml|yazi|keymap.toml"
 )
 
 log()  { printf '\033[1;32m[wezterm4neil]\033[0m %s\n' "$*"; }
@@ -118,6 +121,14 @@ for item in "${ITEMS[@]}"; do
   IFS='|' read -r src dst_dir dst_file <<< "$item"
   install_one "$src" "$dst_dir" "$dst_file"
 done
+
+# 第二层 Zellij 布局用的「快捷服务菜单」脚本 → ~/.local/bin（可执行）
+if [[ -f "$SRC_DIR/scripts/server-menu.sh" ]]; then
+  mkdir -p "$HOME/.local/bin"
+  cp -f "$SRC_DIR/scripts/server-menu.sh" "$HOME/.local/bin/server-menu.sh"
+  chmod +x "$HOME/.local/bin/server-menu.sh"
+  log "已部署服务菜单脚本: ~/.local/bin/server-menu.sh"
+fi
 
 # ---- Nerd Font 自动安装（fonts/ 与脚本同级时：.deb=/etc/wezterm4neil/fonts、DMG=根 fonts）----
 # 目标目录按平台区分：macOS 的 WezTerm 用 CoreText 枚举字体，必须装到

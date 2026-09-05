@@ -5,7 +5,7 @@
 （`wezterm.lua` / `config.fish` / `starship.toml`）+ `nushell.nu`（Windows 用）+
 安装/打包脚本；下载上游、组装三平台安装包、自测、发布全部由这条流水线完成。
 
-一句话：**每周自动把上游最新版 WezTerm / Fish / Nushell / Starship / Nerd Font
+一句话：**每周自动把上游最新版 WezTerm / Fish / Nushell / Starship / Nerd Font / Zellij / Yazi
 与本仓库配置打包成 .deb / .dmg / .exe，发布到 GitHub Releases。**
 
 ## 1. 触发方式
@@ -24,7 +24,7 @@
 ```
 触发（schedule / dispatch / push main）
  │
- ├─ ① fetch-upstreams   拉取 5 个上游最新产物 + 字体子集 + VERSIONS.txt
+ ├─ ① fetch-upstreams   拉取 7 个上游最新产物 + 字体子集 + VERSIONS.txt
  │
  ├─ ② preview           独立 Job：VHS 渲染 README 预览 GIF（有变化才 commit 回仓库）
  │
@@ -42,7 +42,7 @@
 ①③④⑤⑥⑦ 对这类 push 一律 `if: false` 跳过 → **那轮只有 preview 会跑**，
 不会因为 GIF 更新触发整条打包链。
 
-## 3. ① fetch-upstreams —— 拉取 5 个上游
+## 3. ① fetch-upstreams —— 拉取 7 个上游
 
 全部走 GitHub API 解析各仓库 `releases/latest`，带 curl 重试 + 空文件守卫：
 
@@ -53,6 +53,8 @@
 | `starship/starship` | Linux / macOS / Windows 的 **x86_64** 单文件二进制 | 提示符（三端） |
 | `nushell/nushell` | Windows `x86_64-pc-windows-msvc.zip` | Windows 默认 shell（仅 Win） |
 | `ryanoasis/nerd-fonts` | `CascadiaCode.zip`（v3.5.1 起并入此名；v3.4 前是 `CaskaydiaCove.zip`） | Powerline 图标字体 |
+| `zellij-org/zellij` | Linux（及未来 macOS）`x86_64-unknown-linux-musl.tar.gz`（排除 no-web 变体） | 第二层多路复用器（Linux/macOS；Win 无原生版） |
+| `sxyazi/yazi` | Linux `x86_64-unknown-linux-gnu.zip` | 文件管理器（侧边栏） |
 
 对上游命名变化容错（`pick3` 工具）：
 - 主规则（前缀+后缀）→ 失效则放宽备选规则 → 全部失效则**列出该 release 全部资产名并 exit 1**，绝不静默产出空包。
@@ -169,7 +171,7 @@ Windows 开箱体验（wezterm.lua 内）：默认 shell = 随包 Nushell + Star
 
 | 耗时来源 | 说明 |
 | :--- | :--- |
-| 上游下载 | ≈300 MB（wezterm×3 / fish / starship×3 / nu ~57 MB / 字体 zip） |
+| 上游下载 | ≈350 MB（wezterm×3 / fish / starship×3 / nu ~57 MB / zellij ~19 MB / yazi ~14 MB / 字体 zip） |
 | artifact 跨 job 搬运 | 上游包 + 三端产物（dmg 130 MB / exe 60 MB / deb 40 MB）来回上传下载 |
 | runner 冷启动 | macOS / Windows 托管 runner 排队 + 开机 2-5 分钟 |
 | 真打包 | VHS 录屏、NSIS lzma 压缩 ≈200 MB payload 等 |
