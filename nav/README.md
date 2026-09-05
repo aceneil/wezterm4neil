@@ -1,8 +1,16 @@
 # wznav — WezTerm4Neil 侧栏导航 TUI
 
-一期目标：把当前 Zellij 复合侧栏的「左上 server-menu.sh + 左下 yazi」合并为
-**一个自研 Go TUI**，左栏 20% 跑这一个进程就够。整体交互心智参考 WindTerm
-的「会话列表 + 文件管理一体」窗口，但**只参考思想、不抄代码**（cleanroom）。
+**R2（2026-09-06）**：支持 `--section both|servers|files` 单段模式，
+便于把 wznav 拆到 Zellij 的两个 stacked pane，左右各管一件事，
+焦点切换走 Zellij 原生 `Alt+h/j/k/l`。CLI flag 默认 `both`，完全
+向后兼容。
+
+## 两种运行模式
+
+### 模式 1：`--section both`（默认；一期行为）
+
+单个 wznav 进程里把服务器列表 + 文件浏览上下叠起来，Tab / 1 / 2 在
+两个 pane 之间切焦点：
 
 ```
 ┌─ wznav ────────────────────────────────────────────────┐
@@ -17,6 +25,35 @@
 │   docs.md                                              │
 ├─────────────────────────────────────────────────────────┤
 │ ctx=local pane=1 ws=ws://127.0.0.1:39771  |  → github.com (zellij=zellij) │
+└─────────────────────────────────────────────────────────┘
+```
+
+### 模式 2：`--section servers` / `--section files`（R2 新增）
+
+把 wznav 拆成两个独立进程，分别跑在两个 Zellij pane 里。
+每个 pane 自适应满高（不留另一半的占位行），Tab / 1 / 2 在
+单段模式下静默忽略（避免在过滤模式里误触），状态行显示
+`mode=servers|files` 而不是 `pane=1|2`：
+
+```
+┌─ wznav — servers ──────────────────────────────────────┐
+│ ▶ Servers                                              │
+│   github.com                                           │
+│   root@db1.example.com          (prod 数据库)          │
+│   k8s-master                    (local k8s 控制面)     │
+│                                                         │
+│ ctx=local mode=servers ws=ws://127.0.0.1:39771          │
+└─────────────────────────────────────────────────────────┘
+```
+
+```
+┌─ wznav — files ────────────────────────────────────────┐
+│ ▶ Files (~/Projects)                                   │
+│   ..                                                   │
+│   wezterm4neil/                                         │
+│   docs.md                                              │
+│                                                         │
+│ ctx=local mode=files ws=ws://127.0.0.1:39772           │
 └─────────────────────────────────────────────────────────┘
 ```
 
@@ -43,8 +80,14 @@ Go 工具链按下列顺序查找：
 ## 运行
 
 ```bash
-# TUI（需要真实 TTY；Zellij pane 内可正常运行）
+# 默认：单进程两段（向后兼容）
 ./bin/wznav
+
+# R2：服务器段独立进程（用于 Zellij 左上 pane）
+./bin/wznav --section servers
+
+# R2：文件段独立进程（用于 Zellij 左下 pane）
+./bin/wznav --section files
 
 # 调试用：仅打印解析后的服务器列表（无 TTY 也可）
 ./bin/wznav --list
@@ -67,6 +110,10 @@ Go 工具链按下列顺序查找：
 
 ## 快捷键
 
+> 单段模式（`--section servers` / `--section files`）下 `Tab / 1 / 2`
+> 静默忽略（不能切换到不存在的 pane）；`r` 只刷新当前段；
+> `?` 显示的提示文本会相应收窄。其它键一致。
+
 | 键                         | 行为                                                            |
 |----------------------------|-----------------------------------------------------------------|
 | `j` / `k` / `↑` / `↓`      | 上下移动当前 pane 的高亮行                                       |
@@ -75,12 +122,12 @@ Go 工具链按下列顺序查找：
 | 双击（500ms 内同位置）      | 等价于 `Enter`（mouse 用户）                                     |
 | `h` / `←`                  | 文件 pane：上一级目录                                            |
 | `l` / `→`                  | 文件 pane：进入高亮目录                                          |
-| `Tab` / `1` / `2`          | 在「服务器 ↔ 文件」pane 间切焦点                                |
+| `Tab` / `1` / `2`          | 仅 `both` 模式：在「服务器 ↔ 文件」pane 间切焦点                  |
 | `/`                        | 当前 pane 进入过滤模式（再按 `Enter` 退出过滤）                  |
 | `Esc`                      | 退出过滤、还原完整列表                                           |
 | `Backspace`                | 过滤模式：删一个字符                                             |
-| `r`                        | 重读 `~/.ssh/config` + `servers.txt`，刷新目录                  |
-| `?`                        | 在状态行显示一次完整快捷键提示                                   |
+| `r`                        | `both` 模式：重读 `~/.ssh/config` + `servers.txt`，刷新目录；<br>`servers` 模式：仅重读服务器；<br>`files` 模式：仅刷新目录 |
+| `?`                        | 在状态行显示一次完整快捷键提示（按 section 自适应）              |
 | `q` / `Ctrl+C`             | 退出 wznav（zellij pane 回到 shell）                            |
 
 ## 鼠标
@@ -89,29 +136,30 @@ Go 工具链按下列顺序查找：
 - 双击（500ms 内同坐标）：立即执行 `Enter` 动作
 - 滚轮：在当前 pane 内上下移动
 
-## 设计
+## 设计取舍（why `--section`）
 
-### 单一二进制
-所有视图（服务器列表、文件树、状态行、ws 服务）都直接内建在 `wznav`
-里。**不实现插件目录、动态加载、外部 UI 进程**，只适配我们自己的
-打包环境（Linux deb + Zellij 左栏），不为通用化付出额外抽象。
+`both` 模式下两段共享一个进程，节省 ~4 MB 内存、一份 ws 端口；但
+Zellij 的 stack pane 布局（左右两栏摞起来）天然就是把两个 widget
+并排放——把 wznav 拆成两个进程后：
 
-### 服务端动作
+- 焦点切换走 Zellij 原生 `Alt+h/j/k/l`，不用抢 `Tab` 键；
+- 每个 pane 只关注一件事，按键冲突面更小（`j/k/Enter` 在
+  服务器段就是连接、在文件段就是移动）；
+- ws 端口独立可观测（`39771` vs `39772`），出问题容易排查；
+- 二期把文件段换成「远端 SFTP 浏览器」时，可以无痛替换而不影响
+  服务器段。
 
-- 在 Zellij 内（`$ZELLIJ` 已设且 `zellij` 二进制在 PATH）：
-  `zellij action new-tab --name <tab> -- ssh <host>`
-  每次点击 = 开新 tab，不会关闭/打断现有窗格与布局。
-- 不在 Zellij 但 `zellij` 在 PATH：同样尝试新 tab（用于"开发期
-  误启"）。
-- 都没有：状态行提示「zellij=off-bin: install zellij」，**不**就地 exec ssh，
-  避免销毁侧栏 pane。
+每个进程仍然内嵌独立的 ws server（端口自动递增），所以将来两段
+要互相通信也只需走 127.0.0.1，不需要新 IPC。
+
+## 数据源
 
 ### 服务器列表
 
-合并：
+两份来源合并去重：
 
-1. `~/.ssh/config` 的 `Host` 行（过滤 `*` `?` 通配；多个别名按出现顺序
-   去重；首胜）。
+1. `~/.ssh/config`（按 `Host` 解析；`Host *` 通配 + `Host x y z`
+   多别名都正确处理；`#` 注释行剔除；空 pattern 跳过；首胜去重）。
 2. `~/.config/wezterm4neil/servers.txt`（每行 `别名` 或 `别名|说明`）。
    `#` 开头 / 空行忽略。
 
@@ -178,13 +226,16 @@ nav/
     ├── fs/      (fs.go)                     # 文件浏览器
     ├── action/  (action.go + _test.go)      # zellij 计划构造 / 执行
     ├── ws/      (ws.go)                     # 内嵌 ws server
-    └── ui/      (ui.go + _test.go)          # bubbletea 视图/键盘/鼠标
+    └── ui/      (ui.go + _test.go)          # bubbletea 视图/键盘/鼠标（含 Section/R2）
 ```
 
 ## 集成
 
-- Zellij 布局：`config/zellij/layouts/sidebar.kdl`（被本任务一并改）
-  左栏 20% 改为单 pane 跑 `wznav`（PATH 中找，缺则提示）。
+- Zellij 布局：`config/zellij/layouts/sidebar.kdl`（R2 起）
+  左栏 20% 横向拆成两个 pane，各跑一个 wznav：
+  - 顶 50%：`wznav --section servers`
+  - 底 50%：`wznav --section files`
+  缺 wznav 时回退到 fish/bash 提示，不拖累右栏主终端。
 - 安装：`install.sh` 若 `bin/wznav` 存在就复制到 `~/.local/bin/wznav`。
 - Debian 打包：`packaging/linux/build-deb.sh` 新增 `--wznav-bin` 可选参数；
   缺省不装（向后兼容）。
@@ -195,8 +246,8 @@ nav/
 cd nav && go test ./...
 # ok  github.com/wezterm4neil/wznav/internal/action     3 tests
 # ok  github.com/wezterm4neil/wznav/internal/servers    6 tests
-# ok  github.com/wezterm4neil/wznav/internal/ui         5 tests
-# 14 passing
+# ok  github.com/wezterm4neil/wznav/internal/ui        12 tests
+# 21 passing  (R1=14, R2 新增 7：ParseSection / Section.String / 单段 view ×2 / Tab 静默 ×2 / 单段刷新隔离)
 ```
 
 ## 二期 / 遗留

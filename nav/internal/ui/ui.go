@@ -1,4 +1,4 @@
-// Package ui wires the wznav TUI on top of bubbletea. Layout:
+// Package ui wires the wznav TUI on top of bubbletea. Layout (SectionBoth):
 //
 //	┌─ Servers ─────────────┐
 //	│ a1                    │
@@ -19,6 +19,14 @@
 // Panes are tab-cycled with Tab / 1 / 2. '/' filters the active pane.
 // On startup the program also boots the local websocket server from
 // internal/ws (best-effort, never blocks the TUI).
+//
+// Single-section mode (SectionServers / SectionFiles): the model renders
+// exactly one pane and consumes the full height minus the title + status
+// row. Tab / 1 / 2 are silently ignored (no other pane exists), 'r'
+// refreshes only the active section, and the focus marker is always the
+// focused-arrow form. This is what lets two wznav instances live in two
+// stacked Zellij panes and have focus moved between them via Zellij's
+// native Alt+h/j/k/l.
 package ui
 
 import (
@@ -44,12 +52,56 @@ const (
 	paneFiles
 )
 
+// Section selects which top-level area(s) the model renders.
+//
+// SectionBoth keeps the historical two-pane layout (default;
+// Tab / 1 / 2 cycles focus). SectionServers and SectionFiles render
+// only that one area, fill the available height, lock the focus to
+// the visible area, and ignore Tab / 1 / 2 — useful when each wznav
+// lives in its own Zellij pane and the user moves focus between the
+// two panes via Zellij's native Alt+h/j/k/l.
+type Section int
+
+const (
+	SectionBoth Section = iota
+	SectionServers
+	SectionFiles
+)
+
+// ParseSection converts a CLI string into a Section. Empty, "both"
+// (case-insensitive) yield SectionBoth. Unknown values return an error
+// so the CLI can exit cleanly instead of silently falling back.
+func ParseSection(s string) (Section, error) {
+	switch strings.ToLower(strings.TrimSpace(s)) {
+	case "", "both":
+		return SectionBoth, nil
+	case "servers", "server":
+		return SectionServers, nil
+	case "files", "file":
+		return SectionFiles, nil
+	}
+	return SectionBoth, fmt.Errorf("invalid section %q (want both|servers|files)", s)
+}
+
+// String renders Section in a stable form suitable for the status bar.
+func (s Section) String() string {
+	switch s {
+	case SectionServers:
+		return "servers"
+	case SectionFiles:
+		return "files"
+	default:
+		return "both"
+	}
+}
+
 // Model is the bubbletea model. All state lives here; bubbletea guarantees
 // single-threaded Update access.
 type Model struct {
 	width, height int
 
-	focus pane
+	section Section
+	focus   pane
 
 	serversAll   []servers.Entry
 	serversView  []servers.Entry
@@ -77,16 +129,36 @@ type Model struct {
 // NewModel constructs the initial model. The websocket server is built
 // but not started here; main() calls ws.Start so we can hand back the
 // URL for logging even if startup fails.
-func NewModel(startDir string, wss *ws.Server) *Model {
+//
+// section picks which top-level area(s) the model is responsible for.
+// SectionBoth reproduces the historical two-pane layout (Tab / 1 / 2
+// cycle focus). SectionServers loads only the server list and locks
+// focus to it; SectionFiles loads only the file browser and locks
+// focus there. In single-section mode the model skips the irrelevant
+// data load entirely (no ~/.ssh/config parsing for a files-only
+// wznav, no ReadDir for a servers-only one).
+func NewModel(startDir string, wss *ws.Server, section Section) *Model {
 	m := &Model{
-		focus:      paneServers,
-		files:      fs.New(startDir),
-		ctx:        "local",
-		wss:        wss,
-		serversAll: servers.Load(),
+		section: section,
+		ctx:     "local",
+		wss:     wss,
 	}
-	m.rebuildServerView()
-	m.refreshFiles()
+	switch section {
+	case SectionServers:
+		m.focus = paneServers
+		m.serversAll = servers.Load()
+		m.rebuildServerView()
+	case SectionFiles:
+		m.focus = paneFiles
+		m.files = fs.New(startDir)
+		m.refreshFiles()
+	default:
+		m.focus = paneServers
+		m.files = fs.New(startDir)
+		m.serversAll = servers.Load()
+		m.rebuildServerView()
+		m.refreshFiles()
+	}
 	return m
 }
 
@@ -124,34 +196,53 @@ func (m *Model) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	if m.editingFilter {
 		return m.handleFilterKey(msg)
 	}
-	switch msg.String() {
+	k := msg.String()
+	switch k {
 	case "ctrl+c":
 		return m, tea.Quit
 	case "q":
 		return m, tea.Quit
-	case "tab":
-		m.focus = (m.focus + 1) % 2
-		m.clearFilter()
-		return m, nil
-	case "1":
-		m.focus = paneServers
-		m.clearFilter()
-		return m, nil
-	case "2":
-		m.focus = paneFiles
-		m.clearFilter()
-		return m, nil
 	case "?":
-		m.status = "j/k move · enter open · / filter · 1/2 panes · tab cycle · r refresh · ? help · q quit"
-		return m, nil
-	case "r":
-		m.reloadServers()
-		m.refreshFiles()
-		m.status = "refreshed"
+		m.status = helpText(m.section)
 		return m, nil
 	case "/":
 		m.editingFilter = true
 		m.status = ""
+		return m, nil
+	}
+	// Tab / 1 / 2 only make sense when both sections are visible.
+	// In single-section mode they're silently ignored — the user
+	// moves focus between sibling Zellij panes with Alt+h/j/k/l.
+	if m.section == SectionBoth {
+		switch k {
+		case "tab":
+			m.focus = (m.focus + 1) % 2
+			m.clearFilter()
+			return m, nil
+		case "1":
+			m.focus = paneServers
+			m.clearFilter()
+			return m, nil
+		case "2":
+			m.focus = paneFiles
+			m.clearFilter()
+			return m, nil
+		}
+	}
+	switch k {
+	case "r":
+		switch m.section {
+		case SectionServers:
+			m.reloadServers()
+			m.status = "refreshed servers"
+		case SectionFiles:
+			m.refreshFiles()
+			m.status = "refreshed files"
+		default:
+			m.reloadServers()
+			m.refreshFiles()
+			m.status = "refreshed"
+		}
 		return m, nil
 	}
 	switch m.focus {
@@ -161,6 +252,21 @@ func (m *Model) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		return m.handleFilesKey(msg)
 	}
 	return m, nil
+}
+
+// helpText returns the keybinding summary appropriate for the
+// currently rendered section. In single-section mode Tab / 1 / 2 are
+// omitted (they would be no-ops), and the 'r' description is tightened
+// to the area that actually refreshes.
+func helpText(s Section) string {
+	switch s {
+	case SectionServers:
+		return "j/k move · enter connect · / filter · r refresh servers · ? help · q quit"
+	case SectionFiles:
+		return "j/k move · enter open · h/l parent/into · / filter · r refresh dir · ? help · q quit"
+	default:
+		return "j/k move · enter open · / filter · 1/2 panes · tab cycle · r refresh · ? help · q quit"
+	}
 }
 
 func (m *Model) handleServersKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
@@ -311,6 +417,26 @@ func (m *Model) handleMouse(msg tea.MouseMsg) (tea.Model, tea.Cmd) {
 		m.lastClickAt = time.Now()
 		m.lastClickX = msg.X
 		m.lastClickY = msg.Y
+		switch m.section {
+		case SectionServers:
+			// Layout: title (0), header (1), rows (2..height-2), status (last).
+			if y >= 2 && y < m.height-1 {
+				m.serverCursor = clamp(y-2, 0, max(0, len(m.serversView)-1))
+				if double {
+					m.openSelectedServer()
+				}
+			}
+			return m, nil
+		case SectionFiles:
+			if y >= 2 && y < m.height-1 {
+				m.fileCur = clamp(y-2, 0, max(0, len(m.fileView)-1))
+				if double {
+					m.enterSelectedFile()
+				}
+			}
+			return m, nil
+		}
+		// SectionBoth: original two-area hit-test.
 		if y >= 2 && y < m.serverListEnd() {
 			m.focus = paneServers
 			m.serverCursor = clamp(y-2, 0, max(0, len(m.serversView)-1))
@@ -442,46 +568,62 @@ func (m *Model) View() string {
 		m.height = 24
 	}
 
-	// Title.
-	b.WriteString(pad(" wznav ", m.width, '-'))
+	// Title row (always 1 line). Tag includes the section so stacked
+	// wznav panes in the same Zellij session are visually distinguishable.
+	b.WriteString(pad(m.titleBar(), m.width, '-'))
 	b.WriteByte('\n')
 
-	// Server header.
-	shead := "Servers"
-	if m.focus == paneServers {
-		shead = "▶ Servers"
-	}
-	b.WriteString(pad(" "+shead+" ", m.width, '-'))
-	b.WriteByte('\n')
-
-	// Server rows.
-	serverH := m.serverListEnd() - 2
-	for i := 0; i < serverH; i++ {
-		b.WriteString(m.renderServerRow(i))
+	switch m.section {
+	case SectionServers:
+		// Single-section: header (y=1), content (y=2..height-2), status (last).
+		b.WriteString(pad(" "+m.sectionHeader(paneServers)+" ", m.width, '-'))
 		b.WriteByte('\n')
-	}
-
-	// Section divider between server list and file manager.
-	b.WriteString(pad("", m.width, '·'))
-	b.WriteByte('\n')
-
-	// File header.
-	fhead := fmt.Sprintf("Files (%s)", m.files.Current)
-	if m.focus == paneFiles {
-		fhead = "▶ " + fhead
-	}
-	b.WriteString(pad(" "+fhead+" ", m.width, '-'))
-	b.WriteByte('\n')
-
-	// File rows.
-	fileRows := m.height - m.serverListEnd() - 3
-	if fileRows < 1 {
-		fileRows = 1
-	}
-	for i := 0; i < fileRows; i++ {
-		b.WriteString(m.renderFileRow(i))
-		if i < fileRows-1 {
+		rows := m.height - 3
+		if rows < 1 {
+			rows = 1
+		}
+		for i := 0; i < rows; i++ {
+			b.WriteString(m.renderServerRow(i))
+			if i < rows-1 {
+				b.WriteByte('\n')
+			}
+		}
+	case SectionFiles:
+		b.WriteString(pad(" "+m.sectionHeader(paneFiles)+" ", m.width, '-'))
+		b.WriteByte('\n')
+		rows := m.height - 3
+		if rows < 1 {
+			rows = 1
+		}
+		for i := 0; i < rows; i++ {
+			b.WriteString(m.renderFileRow(i))
+			if i < rows-1 {
+				b.WriteByte('\n')
+			}
+		}
+	default:
+		// SectionBoth: original two-pane split.
+		sEnd := m.serverListEnd()
+		b.WriteString(pad(" "+m.sectionHeader(paneServers)+" ", m.width, '-'))
+		b.WriteByte('\n')
+		serverH := sEnd - 2
+		for i := 0; i < serverH; i++ {
+			b.WriteString(m.renderServerRow(i))
 			b.WriteByte('\n')
+		}
+		b.WriteString(pad("", m.width, '·'))
+		b.WriteByte('\n')
+		b.WriteString(pad(" "+m.sectionHeader(paneFiles)+" ", m.width, '-'))
+		b.WriteByte('\n')
+		fileRows := m.height - sEnd - 3
+		if fileRows < 1 {
+			fileRows = 1
+		}
+		for i := 0; i < fileRows; i++ {
+			b.WriteString(m.renderFileRow(i))
+			if i < fileRows-1 {
+				b.WriteByte('\n')
+			}
 		}
 	}
 
@@ -489,6 +631,40 @@ func (m *Model) View() string {
 	b.WriteByte('\n')
 	b.WriteString(m.statusLine())
 	return b.String()
+}
+
+// titleBar returns the first row of the TUI, tagged with the active
+// section so a user running two stacked wznav panes (one per section)
+// can tell at a glance which is which.
+func (m *Model) titleBar() string {
+	switch m.section {
+	case SectionServers:
+		return " wznav — servers "
+	case SectionFiles:
+		return " wznav — files "
+	default:
+		return " wznav "
+	}
+}
+
+// sectionHeader returns the per-pane header line (with the ▶ marker
+// when the pane is focused). In single-section mode the other pane
+// is never rendered, so we don't have to worry about the unfocused
+// variant.
+func (m *Model) sectionHeader(p pane) string {
+	if p == paneServers {
+		if m.focus == paneServers {
+			return "▶ Servers"
+		}
+		return "Servers"
+	}
+	if m.files == nil {
+		return "Files"
+	}
+	if m.focus == paneFiles {
+		return "▶ Files (" + m.files.Current + ")"
+	}
+	return "Files (" + m.files.Current + ")"
 }
 
 func (m *Model) renderServerRow(i int) string {
@@ -544,7 +720,16 @@ func (m *Model) statusLine() string {
 	} else if m.currentFilter() != "" {
 		filter = " filter:" + m.currentFilter()
 	}
-	left := fmt.Sprintf(" ctx=%s pane=%d ws=%s%s", m.ctx, m.focus+1, m.wssURL(), filter)
+	// In single-section mode there is only one pane, so "pane=N" is
+	// noise; we surface "mode=servers|files" instead to make it easy
+	// to tell two stacked wznav instances apart from the status line.
+	var left string
+	switch m.section {
+	case SectionServers, SectionFiles:
+		left = fmt.Sprintf(" ctx=%s mode=%s ws=%s%s", m.ctx, m.section, m.wssURL(), filter)
+	default:
+		left = fmt.Sprintf(" ctx=%s pane=%d ws=%s%s", m.ctx, m.focus+1, m.wssURL(), filter)
+	}
 	right := m.status
 	if right != "" {
 		right = "  |  " + right

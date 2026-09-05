@@ -37,7 +37,7 @@ Windows、macOS、Linux 三端长得一样、快捷键一样、开箱即用。
 
 | 平台 | 安装包 | 默认 Shell | 随包组件 |
 | :--- | :--- | :--- | :--- |
-| 🐧 Linux | `.deb` 安装包 | Fish（→ Zellij 第二层） | WezTerm + Zellij + Yazi + Fish + Starship + 字体 |
+| 🐧 Linux | `.deb` 安装包 | Fish（→ Zellij 第二层） | WezTerm + Zellij + **wznav（自研）** + Fish + Starship + 字体 |
 | 🍎 macOS | `.dmg`（**规划中**） | Fish | 组件/脚本已就绪，待 Apple 真机验收后发布 |
 
 > 📌 macOS：目前处于**规划中** —— 流水线与安装脚本已备好（见 [PIPELINE.md](PIPELINE.md)），

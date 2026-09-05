@@ -2,11 +2,16 @@
 //
 // 用法：
 //
-//	wznav [--start-dir <path>] [--no-ws] [--ws-port <n>] [--help] [--list]
+//	wznav [--start-dir <path>] [--no-ws] [--ws-port <n>] [--section <s>] [--list]
+//	        [--version] [--help]
 //
 //	--start-dir <path>   起始目录（默认 $HOME）
 //	--ws-port <n>        ws 起始端口（默认 39771，被占用自动 +1；环境变量 WZNAV_WS 覆盖）
 //	--no-ws              禁用内嵌 websocket 服务（用于最小化场景）
+//	--section <s>        渲染区段：both（默认）/ servers / files。
+//	                     单段模式便于把 wznav 拆到两个 Zellij pane，
+//	                     通过 Alt+h/j/k/l 在 pane 间挪焦点，
+//	                     每个 pane 内只用 j/k/Enter/… 即可。
 //	--list               解析服务器列表并以易读文本打印到 stdout，退出
 //	                     （无 DISPLAY/无 TTY 的 CI 环境仍可验证数据通路）
 //	--version            打印版本
@@ -39,20 +44,28 @@ var version = "dev"
 
 func main() {
 	var (
-		startDir string
-		wsPort   int
-		noWS     bool
-		listMode bool
-		showVer  bool
-		showHelp bool
+		startDir  string
+		wsPort    int
+		noWS      bool
+		listMode  bool
+		sectionIn string
+		showVer   bool
+		showHelp  bool
 	)
 	flag.StringVar(&startDir, "start-dir", envOr("HOME", ""), "起始目录（默认 $HOME）")
 	flag.IntVar(&wsPort, "ws-port", ws.DefaultPort, "websocket 起始端口（默认 39771）")
 	flag.BoolVar(&noWS, "no-ws", false, "禁用内嵌 websocket 服务")
 	flag.BoolVar(&listMode, "list", false, "打印解析后的服务器列表后退出")
+	flag.StringVar(&sectionIn, "section", "both", "渲染区段：both|servers|files（单段模式便于把 wznav 拆到两个 Zellij pane）")
 	flag.BoolVar(&showVer, "version", false, "打印版本并退出")
 	flag.BoolVar(&showHelp, "help", false, "打印帮助并退出")
 	flag.Parse()
+
+	section, err := ui.ParseSection(sectionIn)
+	if err != nil {
+		fmt.Fprintln(os.Stderr, "wznav:", err)
+		os.Exit(2)
+	}
 
 	if showHelp {
 		flag.Usage()
@@ -60,6 +73,9 @@ func main() {
 		fmt.Fprintln(os.Stderr, "  WZNAV_WS=<port>   覆盖 --ws-port")
 		fmt.Fprintln(os.Stderr, "  HOME              起始目录 + ssh config 路径")
 		fmt.Fprintln(os.Stderr, "  XDG_CONFIG_HOME   servers.txt 所在 wezterm4neil/ 子目录根")
+		fmt.Fprintln(os.Stderr, "\n示例（Zellij 双 pane 拆分):")
+		fmt.Fprintln(os.Stderr, "  wznav --section servers   # 左上：服务器列表")
+		fmt.Fprintln(os.Stderr, "  wznav --section files     # 左下：文件浏览")
 		os.Exit(0)
 	}
 	if showVer {
@@ -86,7 +102,7 @@ func main() {
 	}
 
 	// bubbletea 入口。
-	model := ui.NewModel(startDir, wss)
+	model := ui.NewModel(startDir, wss, section)
 	prog := tea.NewProgram(model, tea.WithAltScreen(), tea.WithMouseCellMotion())
 
 	// 退出后归还终端模式 + 关闭 ws（兜底；defer 在 SIGINT 下不保证执行）。

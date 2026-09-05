@@ -1,18 +1,29 @@
 // Zellij 复合侧栏布局（WezTerm4Neil 第二层，2026-09-06 改造）
 //
-// 结构：左侧 20% 单 pane 自研 TUI `wznav`（合并了原 server-menu.sh + yazi）
-//       右侧 80% 主终端；顶部 tab-bar / 底部 status-bar 保留。
+// 结构：左侧 20% 横向两段（horizontal split），每段跑一个独立的 wznav 实例：
+//       ┌─────────────┐
+//       │ wznav       │  ← 顶 50%：`wznav --section servers`（服务器列表）
+//       │  --section  │
+//       │   servers   │
+//       ├─────────────┤
+//       │ wznav       │  ← 底 50%：`wznav --section files`（文件浏览）
+//       │  --section  │     两个 wznav 都独立嵌入 ws server，端口按 WZNAV_WS
+//       │   files     │     递增；聚焦切换走 Zellij 原生 Alt+h/j/k/l
+//       ├─────────────┤
+//       │ 💻 主终端    │  ← 右侧 80% 主终端
+//       └─────────────┘
 //
-// 跑法：wznav 单二进制内部分上下两区——上半是服务器列表，下半是文件树。
-//       用 PATH 前缀（zellij 自身继承 Zellij 启动时环境）确保能找到 wznav。
-//       wznav 同时内嵌本地 ws 服务，端口见 WZNAV_WS / --ws-port。
+// 跑法：PATH 前缀确保能找到 wznav；缺则 pane 退化为 fish/bash 提示，
+//       不影响右侧。
 //
-// 错误处理：若 PATH 里没有 wznav，此 pane 会立即退出；zellij 会按
+// 错误处理：若 PATH 里没有 wznav，子 pane 会立即退出；zellij 会按
 //       pane_command_finder_failure_strategy 处理。建议安装时把 wznav
 //       复制到 ~/.local/bin（install.sh） 或 /usr/bin（.deb）。
 //
-// 历史：v1 = 上 40% server-menu.sh + 下 60% yazi（2026-09 之前）
-//       v2 = 单 pane wznav（本版本；详见 README & CODEX-WZNAV-REPORT.md）
+// 历史：
+//   v1 = 上 40% server-menu.sh + 下 60% yazi（2026-09 之前）
+//   v2 = 单 pane wznav 上下两区（2026-09-06 一期）
+//   v3 = 横向两段 wznav（--section servers / files；本期 R2）
 layout {
     default_tab_template {
         pane size=1 borderless=true {
@@ -26,11 +37,20 @@ layout {
 
     tab name="Workspace" {
         pane split_direction="vertical" {
-            // 左侧 20% 单 pane = wznav（TUI 自适应上下分屏）
-            // 可选嵌入：没有 wznav 时回退提示 + shell，绝不拖累右栏。
-            pane size="20%" name="wznav" {
-                command "bash"
-                args "-lc" "if command -v wznav >/dev/null 2>&1; then exec wznav; else echo '⚠ wznav 未安装 — 右侧功能不受影响（装到 ~/.local/bin 后重进即热插入）'; exec fish 2>/dev/null || exec bash; fi"
+            // 左侧 20% 横向两段：上 = 服务器列表，下 = 文件浏览。
+            pane size="20%" {
+                pane split_direction="horizontal" {
+                    // 上半：服务器列表（wznav 单段 servers 模式）
+                    pane size="50%" name="wznav-servers" {
+                        command "bash"
+                        args "-lc" "if command -v wznav >/dev/null 2>&1; then exec wznav --section servers; else echo '⚠ wznav 未安装 — 装到 ~/.local/bin 后重进即热插入'; exec fish 2>/dev/null || exec bash; fi"
+                    }
+                    // 下半：文件浏览（wznav 单段 files 模式）
+                    pane size="50%" name="wznav-files" {
+                        command "bash"
+                        args "-lc" "if command -v wznav >/dev/null 2>&1; then exec wznav --section files; else echo '⚠ wznav 未安装 — 装到 ~/.local/bin 后重进即热插入'; exec fish 2>/dev/null || exec bash; fi"
+                    }
+                }
             }
             // 右侧 80% 主终端
             pane name="💻 终端" focus=true
