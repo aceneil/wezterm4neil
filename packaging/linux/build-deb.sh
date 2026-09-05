@@ -151,6 +151,22 @@ for sub in config/zellij config/yazi scripts; do
   fi
 done
 
+# 我们自己的应用菜单项（与 Windows 开始菜单观感一致；上游的 WezTerm 项也保留）
+mkdir -p "$STAGE/usr/share/applications"
+cat > "$STAGE/usr/share/applications/wezterm4neil.desktop" <<'EOF'
+[Desktop Entry]
+Type=Application
+Name=WezTerm4Neil
+GenericName=Terminal
+Comment=开箱即用的 WezTerm + Zellij + Fish + Starship 终端
+Exec=/usr/bin/wezterm-gui
+Icon=org.wezfurlong.wezterm
+Terminal=false
+Categories=System;TerminalEmulator;
+StartupWMClass=org.wezfurlong.wezterm
+EOF
+echo "[build-deb] 已添加应用菜单项: wezterm4neil.desktop"
+
 # Nerd Font 子集（供 install.sh 自动装到 ~/.local/share/fonts）→ /etc/wezterm4neil/fonts
 if [[ -n "$FONTS_DIR" && -d "$FONTS_DIR" ]]; then
   mkdir -p "$STAGE/etc/wezterm4neil/fonts"
