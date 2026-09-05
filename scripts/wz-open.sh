@@ -16,6 +16,6 @@ if [[ -z "$f" ]]; then
 fi
 
 if [[ -n "${ZELLIJ:-}" ]]; then
-  exec zellij action new-pane --floating --close-on-exit --name "vim:$(basename "$f")" -- vim "$f"
+  exec zellij action new-pane --floating --close-on-exit --name "vim:$(basename "$f")" --width 90% --height 90% --x 5% --y 5% -- vim "$f"
 fi
 exec vim "$f"
