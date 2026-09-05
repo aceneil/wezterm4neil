@@ -79,7 +79,7 @@ function herdr
     if set -q ZELLIJ
         echo ">> 在悬浮窗中打开 herdr（自动锁定 Zellij 快捷键，退出后解锁）…"
         zellij action new-pane --floating --close-on-exit --name herdr \
-            --width 95% --height 95% --x 2% --y 2% -- "$HOME/.local/bin/wz-herdr.sh"
+            --width 96% --height 96% --x 2% --y 2% -- "$HOME/.local/bin/wz-herdr.sh"
     else
         command "$h" $argv
     end
