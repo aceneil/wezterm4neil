@@ -55,3 +55,21 @@ end
 # 全局环境变量（非交互也会生效）
 # ------------------------------------------------------------------
 set -gx XDG_CONFIG_HOME ~/.config
+
+# ------------------------------------------------------------------
+# 2.5 层：herdr —— Zellij 内输入 herdr → 打开 ~95% 悬浮窗运行 herdr；
+#          退出 herdr 自动关闭悬浮窗，回到预设 Zellij 布局。
+#          普通终端（无 Zellij）→ 直接执行 herdr。
+# ------------------------------------------------------------------
+function herdr
+    if not command -q herdr
+        echo "herdr 未安装（~/.local/bin/herdr 或加入 PATH）" >&2
+        return 1
+    end
+    if set -q ZELLIJ
+        zellij action new-pane --floating --close-on-exit --name herdr \
+            --width 95% --height 95% --x 2% --y 2% -- command herdr
+    else
+        command herdr $argv
+    end
+end
