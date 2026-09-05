@@ -89,7 +89,23 @@ config.window_close_confirmation = 'NeverPrompt'
 -- macOS/Linux 保留系统标题栏，单标签可隐藏以省空间。
 config.hide_tab_bar_if_only_one_tab = not IS_WINDOWS
 config.show_tab_index_in_tab_bar = true
+-- 使用 fancy 标签栏（fancy=false 时下方 tab_bar 配色不生效）
+config.use_fancy_tab_bar = true
+-- inactive_pane_hsb 仅调暗“分屏中非活动窗格”，与标签栏无关（勿用它调标签栏）
 config.inactive_pane_hsb = { saturation = 0.9, brightness = 0.8 }
+-- 标签栏配色：活动标签背景 = 终端底色 #1e1e2e（Catppuccin Mocha base），
+-- 使导航栏与输入区融为一体；非活动标签用 mantle 暗一档。
+config.colors = {
+  tab_bar = {
+    background = '#1e1e2e',
+    active_tab = { bg_color = '#1e1e2e', fg_color = '#cdd6f4', intensity = 'Bold' },
+    inactive_tab = { bg_color = '#181825', fg_color = '#a6adc8' },
+    inactive_tab_hover = { bg_color = '#313244', fg_color = '#cdd6f4' },
+    new_tab = { bg_color = '#1e1e2e', fg_color = '#89b4fa' },
+    new_tab_hover = { bg_color = '#313244', fg_color = '#89b4fa' },
+    inactive_tab_edge = '#313244',
+  },
+}
 config.initial_cols = 140
 config.initial_rows = 30
 -- macOS 专属毛玻璃背景（其它平台自动忽略）
