@@ -84,7 +84,9 @@ else
   config.window_decorations = 'TITLE | RESIZE'
 end
 config.window_close_confirmation = 'NeverPrompt'
-config.hide_tab_bar_if_only_one_tab = true
+-- 标签栏：Windows 隐藏标题栏后需用标签栏拖拽窗口 → 单标签也显示；
+-- macOS/Linux 保留系统标题栏，单标签可隐藏以省空间。
+config.hide_tab_bar_if_only_one_tab = not IS_WINDOWS
 config.show_tab_index_in_tab_bar = true
 config.inactive_pane_hsb = { saturation = 0.9, brightness = 0.8 }
 config.initial_cols = 140
