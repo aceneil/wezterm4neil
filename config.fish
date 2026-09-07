@@ -79,7 +79,7 @@ function herdr
         return 1
     end
     if set -q ZELLIJ
-        echo ">> 在悬浮窗中打开 herdr（自动锁定 Zellij 快捷键，退出后解锁）…"
+        echo ">> 打开 herdr 悬浮窗（已锁定 Zellij 键）。关闭: herdr 内 Ctrl+b 再 q（自动解锁返回布局）；卡住可用 Ctrl+g 回 Zellij → Ctrl+p → x 关闭"
         zellij action new-pane --floating --close-on-exit --name herdr \
             --width 96% --height 96% --x 2% --y 2% -- "$HOME/.local/bin/wz-herdr.sh"
     else
