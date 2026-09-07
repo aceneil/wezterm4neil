@@ -79,7 +79,7 @@ function herdr
         return 1
     end
     if set -q ZELLIJ
-        echo ">> 打开 herdr 悬浮窗（已锁定 Zellij 键）。关闭: herdr 内 Ctrl+b 再 q（自动解锁返回布局）；卡住可用 Ctrl+g 回 Zellij → Ctrl+p → x 关闭"
+        echo ">> 打开 herdr 悬浮窗（已锁定 Zellij 键；也可在 nav4neil 里选 herdr）。关闭: herdr 内 Ctrl+b 再 q（自动解锁）；卡住 Ctrl+g → Ctrl+p → x"
         zellij action new-pane --floating --close-on-exit --name herdr \
             --width 96% --height 96% --x 2% --y 2% -- "$HOME/.local/bin/wz-herdr.sh"
     else
@@ -87,5 +87,3 @@ function herdr
     end
 end
 
-# Alt+f = 打开 herdr 悬浮窗（fish 命令行模式绑定；会覆盖默认 Alt+f 前进一词）
-bind \ef herdr

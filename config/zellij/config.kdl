@@ -12,14 +12,3 @@ plugins {
     tab-bar location="zellij:tab-bar"
     status-bar location="zellij:status-bar"
 }
-
-// Alt+f：原生绑定是 ToggleFloatingPanes（切换浮窗显隐）会吞键；
-// 这里解除 Zellij 对 Alt+f 的占用 → 按键直达底层 fish（fish 已绑定 Alt+f = herdr 悬浮窗）。
-keybinds {
-    normal {
-        unbind "Alt f"
-        // Alt 系快捷：h/l/j/k 或方向键在窗格间移动（默认即有，保底列明）；
-        // Alt+t = 新开标签窗口（OS 不占用，可被终端接收）
-        bind "Alt t" { NewTab; }
-    }
-}
