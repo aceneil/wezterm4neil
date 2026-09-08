@@ -5,10 +5,19 @@ theme "default"
 
 // 默认 shell（与安装包第三层一致：macOS/Linux = fish）
 default_shell "fish"
-// 打开 zellij 时默认启用复合侧边栏布局
+// 打开 zellij 时默认启用隐藏式导航 dock 布局
 default_layout "sidebar"
 
 plugins {
     tab-bar location="zellij:tab-bar"
     status-bar location="zellij:status-bar"
+}
+
+// 隐藏式导航 dock 的呼出/隐藏键（见 layouts/sidebar.kdl）：
+//   Alt+d ＝ ToggleFloatingPanes（dock 显示/隐藏；与 Zellij 默认 Alt+f 等效，二选一即可）。
+//   放 shared_except "locked"，保证在 locked 之外各模式都能呼出 dock。
+keybinds {
+    shared_except "locked" {
+        bind "Alt d" { ToggleFloatingPanes; }
+    }
 }
