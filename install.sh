@@ -136,13 +136,13 @@ if [[ -d "$SRC_DIR/scripts" ]]; then
   log "已部署脚本到 ~/.local/bin: $(ls "$SRC_DIR"/scripts | tr '\n' ' ')"
 fi
 
-# nav4neil 单二进制（可选；存在 bin/nav4neil 就拷到 ~/.local/bin/zwnav）。
-# 缺省的源 layout 用 PATH 找 nav4neil，所以这步是开发者便利而不是必需。
-if [[ -x "$SRC_DIR/bin/nav4neil" ]]; then
+# neilwz-nav-tui 单二进制（可选；存在 bin/neilwz-nav-tui 就拷到 ~/.local/bin/zwnav）。
+# 缺省的源 layout 用 PATH 找 neilwz-nav-tui，所以这步是开发者便利而不是必需。
+if [[ -x "$SRC_DIR/bin/neilwz-nav-tui" ]]; then
   mkdir -p "$HOME/.local/bin"
-  cp -f "$SRC_DIR/bin/nav4neil" "$HOME/.local/bin/nav4neil"
-  chmod +x "$HOME/.local/bin/nav4neil"
-  log "已部署 nav4neil 二进制到 ~/.local/bin/nav4neil（侧栏 TUI）"
+  cp -f "$SRC_DIR/bin/neilwz-nav-tui" "$HOME/.local/bin/neilwz-nav-tui"
+  chmod +x "$HOME/.local/bin/neilwz-nav-tui"
+  log "已部署 neilwz-nav-tui 二进制到 ~/.local/bin/neilwz-nav-tui（侧栏 TUI）"
 fi
 
 # ---- Nerd Font 自动安装（fonts/ 与脚本同级时：.deb=/etc/wezterm4neil/fonts、DMG=根 fonts）----

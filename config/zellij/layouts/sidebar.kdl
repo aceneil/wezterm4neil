@@ -1,71 +1,59 @@
-// Zellij 隐藏式导航 dock 布局（WezTerm4Neil 第二层，v4 = 真正实现隐藏导航，2026-09-08）
+// Zellij 复合侧栏布局（WezTerm4Neil 第二层，2026-09-06 改造）
 //
-// ┌────────────────────────────────────────────────┐
-// │ tab-bar                                        │
-// ├──────────────┬─────────────────────────────────┤
-// │ dock-servers │  💻 终端（默认聚焦；默认不显示    │
-// │ (20%×49%)    │  dock → 主终端整屏全宽）         │
-// ├──────────────┤                                 │
-// │ dock-files   │                                 │
-// │ (20%×49%)    │                                 │
-// ├──────────────┴─────────────────────────────────┤
-// │ status-bar                                     │
-// └────────────────────────────────────────────────┘
+// 结构：左侧 20% 横向两段（horizontal split），每段跑一个独立的 neilwz-nav-tui 实例：
+//       ┌─────────────┐
+//       │ neilwz-nav-tui       │  ← 顶 50%：`neilwz-nav-tui --section servers`（服务器列表）
+//       │  --section  │
+//       │   servers   │
+//       ├─────────────┤
+//       │ neilwz-nav-tui       │  ← 底 50%：`neilwz-nav-tui --section files`（文件浏览）
+//       │  --section  │     两个 neilwz-nav-tui 都独立嵌入 ws server，端口按 WZNAV_WS
+//       │   files     │     递增；聚焦切换走 Zellij 原生 Alt+h/j/k/l
+//       ├─────────────┤
+//       │ 💻 主终端    │  ← 右侧 80% 主终端
+//       └─────────────┘
 //
-// 默认【不显示】左侧导航；按 Alt+d 呼出（dock 覆盖在左侧约 20%，不重排右侧），
-// 再按一次隐藏 → 主终端恢复全宽。dock 由两个 floating pane 组成：
-//   上 = 服务器列表：nav4neil --section servers（点选服务器 → 开新 Zellij tab）
-//   下 = 文件浏览  ：nav4neil --section files  （Enter → wz-open 悬浮编辑器）
+// 跑法：PATH 前缀确保能找到 neilwz-nav-tui；缺则 pane 退化为 fish/bash 提示，
+//       不影响右侧。
 //
-// 为什么用 floating pane 而不是固定 20% 平铺（v3）：
-//   * 显隐不改变右侧 pane 尺寸 → 主终端始终全宽，无布局跳变、不杀进程；
-//   * Zellij 0.45.1 布局支持 floating_panes 节点 + x/y/width/height，
-//     tab 上 hide_floating_panes=true 可在启动时隐藏（实测生效）。
-//
-// ⚠️ 关键坑（实测 0.45.1）：hide_floating_panes 在「带 default_tab_template 的布局」
-//   中不生效（zellij-org/zellij#2974 同类问题），因此本布局改为在 tab 内显式放
-//   tab-bar/status-bar 插件 pane，不用 default_tab_template ——
-//   代价：之后手动新开的 tab（Ctrl+t → n）不再自动带上下栏（功能不受影响）。
-//
-// 按键（normal 模式）：
-//   Alt+d（config.kdl 新增）或 Alt+f（Zellij 默认）＝ ToggleFloatingPanes：呼出/隐藏 dock
-//   呼出后焦点直接落在 dock（实测 0.45.1：焦点=浮窗组内「最后声明的 pane」→ 让 dock-files
-//   先声明、dock-servers 后声明，呼出即聚焦上方的服务器区）；dock 内部用 Alt+j/↓ 到文件区、
-//   Alt+k/↑ 到服务器区。
-//   说明：Zellij 0.45 浮窗是独立焦点层，MoveFocus 只能在 dock 两格之间走；
-//         “Alt+方向 从主区移入 nav” 即由呼出动作完成（呼出=焦点进入 dock）；
-//         想回主终端：再按 Alt+d 隐藏（浮窗隐藏后焦点自动回主终端）。
-//
-// 跑法：pane 内先探测 PATH 是否有 nav4neil；缺则退化为 fish/bash 提示，不影响右侧。
+// 错误处理：若 PATH 里没有 neilwz-nav-tui，子 pane 会立即退出；zellij 会按
+//       pane_command_finder_failure_strategy 处理。建议安装时把 neilwz-nav-tui
+//       复制到 ~/.local/bin（install.sh） 或 /usr/bin（.deb）。
 //
 // 历史：
 //   v1 = 上 40% server-menu.sh + 下 60% yazi（2026-09 之前）
-//   v2 = 单 pane nav4neil 上下两区（2026-09-06 一期）
-//   v3 = 左侧 20% 平铺两段 nav4neil（--section servers / files）
-//   v4 = 隐藏式导航 dock：floating pane 覆盖左侧 ~20%，默认隐藏（本期 M10）
+//   v2 = 单 pane neilwz-nav-tui 上下两区（2026-09-06 一期）
+//   v3 = 横向两段 neilwz-nav-tui（--section servers / files；本期 R2）
 layout {
-    tab name="Workspace" hide_floating_panes=true {
-        // 显式把上下栏放进 tab（不能用 default_tab_template，见上「关键坑」）
-        pane split_direction="vertical" {
-            pane size=1 borderless=true {
-                plugin location="zellij:tab-bar"
-            }
-            pane name="💻 终端" focus=true
-            pane size=1 borderless=true {
-                plugin location="zellij:status-bar"
-            }
+    default_tab_template {
+        pane size=1 borderless=true {
+            plugin location="zellij:tab-bar"
         }
-        floating_panes {
-            // 顺序有讲究：dock-files 先声明、dock-servers 后声明 →
-            // 呼出 dock 时焦点落在 dock-servers（最后声明的浮窗），符合“从上往下用”。
-            pane name="dock-files" x="0%" y="50%" width="20%" height="49%" {
-                command "bash"
-                args "-lc" "if command -v nav4neil >/dev/null 2>&1; then exec nav4neil --section files; else echo '⚠ nav4neil 未安装 — 装到 ~/.local/bin 后重进即热插入'; exec fish 2>/dev/null || exec bash; fi"
+        children
+        pane size=1 borderless=true {
+            plugin location="zellij:status-bar"
+        }
+    }
+
+    tab name="Workspace" {
+        pane split_direction="vertical" {
+            // 左侧 20% 横向两段：上 = 服务器列表，下 = 文件浏览。
+            pane size="20%" {
+                pane split_direction="horizontal" {
+                    // 上半：服务器列表（neilwz-nav-tui 单段 servers 模式）
+                    pane size="50%" name="neilwz-nav-tui-servers" {
+                        command "bash"
+                        args "-lc" "if command -v neilwz-nav-tui >/dev/null 2>&1; then exec neilwz-nav-tui --section servers; else echo '⚠ neilwz-nav-tui 未安装 — 装到 ~/.local/bin 后重进即热插入'; exec fish 2>/dev/null || exec bash; fi"
+                    }
+                    // 下半：文件浏览（neilwz-nav-tui 单段 files 模式）
+                    pane size="50%" name="neilwz-nav-tui-files" {
+                        command "bash"
+                        args "-lc" "if command -v neilwz-nav-tui >/dev/null 2>&1; then exec neilwz-nav-tui --section files; else echo '⚠ neilwz-nav-tui 未安装 — 装到 ~/.local/bin 后重进即热插入'; exec fish 2>/dev/null || exec bash; fi"
+                    }
+                }
             }
-            pane name="dock-servers" x="0%" y="1%" width="20%" height="49%" {
-                command "bash"
-                args "-lc" "if command -v nav4neil >/dev/null 2>&1; then exec nav4neil --section servers; else echo '⚠ nav4neil 未安装 — 装到 ~/.local/bin 后重进即热插入'; exec fish 2>/dev/null || exec bash; fi"
-            }
+            // 右侧 80% 主终端
+            pane name="💻 终端" focus=true
         }
     }
 }

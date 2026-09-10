@@ -37,7 +37,7 @@ Windows、macOS、Linux 三端长得一样、快捷键一样、开箱即用。
 
 | 平台 | 安装包 | 默认 Shell | 随包组件 |
 | :--- | :--- | :--- | :--- |
-| 🐧 Linux | `.deb` 安装包 | Fish（→ Zellij 第二层） | WezTerm + Zellij + **nav4neil（自研）** + Fish + Starship + 字体 |
+| 🐧 Linux | `.deb` 安装包 | Fish（→ Zellij 第二层） | WezTerm + Zellij + **neilwz-nav-tui（自研）** + Fish + Starship + 字体 |
 | 🍎 macOS | `.dmg`（**规划中**） | Fish | 组件/脚本已就绪，待 Apple 真机验收后发布 |
 
 > 📌 macOS：目前处于**规划中** —— 流水线与安装脚本已备好（见 [PIPELINE.md](PIPELINE.md)），
@@ -62,20 +62,6 @@ wezterm                                # 打开终端
 
 > ⚠️ 本包会替换系统里官方安装的 wezterm/fish/starship 三个命令（见安装时的提示；
 > 卸载后按官方渠道重装即可恢复）。
-
-#### 🛟 第二层 Zellij：隐藏式导航 dock（Linux/macOS）
-
-进入 WezTerm 后默认再起一层 Zellij（布局 `sidebar.kdl`），左侧**导航 dock 默认收起**，
-主终端整屏全宽；需要时随手呼出：
-
-| 按键 | 作用 |
-| :--- | :--- |
-| `Alt+d`（或 Zellij 默认 `Alt+f`） | 呼出 / 隐藏左侧导航 dock（占左侧约 20%，不重排右侧终端） |
-| dock 内 `Alt+k` / `Alt+j`（或 `↑`/`↓`） | 在「服务器列表」与「文件浏览」两格之间切换焦点 |
-| dock 内点选 | 服务器 → 开新标签连 SSH；文件 Enter → 悬浮编辑器（同旧版侧栏行为） |
-
-dock 由两个浮动 pane 组成，跑自研 **nav4neil**（`--section servers` / `--section files`，
-nav4neil 未安装时自动退化为提示，不影响右侧主终端）。
 
 ### 🍎 macOS（.dmg）— 规划中（有 Apple 真机后启用）
 
@@ -110,8 +96,6 @@ cd wezterm4neil
 | :--- | :--- |
 | `wezterm.lua` | 终端外观（配色/字体/字号）、标签栏、快捷键、鼠标行为、Windows 默认 Shell（Nushell） |
 | `config.fish` | Fish（macOS / Linux）：别名 + 自动加载 Starship |
-| `config/zellij/config.kdl` | Zellij（Linux/macOS 第二层）全局配置 + 键位（`Alt+d` 呼出隐藏式 dock） |
-| `config/zellij/layouts/sidebar.kdl` | Zellij 默认布局：**隐藏式导航 dock**（默认收起、主终端全宽，`Alt+d`/`Alt+f` 呼出） |
 | `nushell.nu` | Nushell（Windows）：别名 |
 | `starship.toml` | 提示符（Prompt）长什么样：显示哪些模块、什么配色 |
 
@@ -139,21 +123,6 @@ cd wezterm4neil
   编辑 `~/.config/wezterm/wezterm.lua` 里的 `default_prog`；或删掉
   `~/.config/wezterm4neil/nu-path.txt` 后重跑 `install.ps1`。
   平时想快速开 PowerShell / Cmd：`Ctrl+Shift+Space` 启动菜单，或 `Ctrl+Shift+1`（PowerShell）、`Ctrl+Shift+2`（Cmd）。
-
-- **左侧导航 dock 怎么呼出 / 不见了？**
-  默认隐藏（主终端全宽），按 `Alt+d`（或 Zellij 默认 `Alt+f`）呼出/隐藏。
-  呼出后焦点在 dock 内，`Alt+k`/`Alt+j` 在服务器/文件两格间切换；再按一次 `Alt+d` 收起回到主终端。
-  dock 里的 `nav4neil` 未安装时会显示提示行，不影响右侧主终端。
-
-- **为什么 dock 不用旧版固定 20% 侧栏了？**
-  旧版左侧固定占 20%，一开机就占着屏幕。dock 改为浮层方案：平时 0% 占屏，呼出时
-  覆盖左侧约 20% 且**不重排右侧**，收起即恢复全宽（不杀右侧进程）。
-  代价：手动新开的标签页（`Ctrl+t` → `n`）不带顶部/底部信息栏（Zellij `hide_floating_panes`
-  与 `default_tab_template` 不兼容所致，见布局文件注释）；需要侧栏/信息栏的标签可从 dock 内进入。
-
-- **dock 和 herdr 悬浮窗会一起出现？**
-  Zellij 的浮动 pane 是同一开关组：dock（两个导航浮窗）与 herdr（悬浮窗）同显同隐。
-  herdr 用完即自动关（`Ctrl+b` → `q`），平时只有 dock 浮窗在，互不打扰。
 
 - **不想要 Starship，想用纯文本短路径提示符？**
   `nushell.nu` 里有注释好的三行短路径写法（Byxs20 风格），取消注释并把

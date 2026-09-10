@@ -1,10 +1,9 @@
 # Pipeline 自动化流水线详解
 
 本仓库的核心是 `.github/workflows/release.yml` —— 一条在 **GitHub Actions 云端**运行的
-全自动流水线（7 个 Job）。仓库里「手写的源码」是各层配置：`wezterm.lua` / `config.fish` /
-`starship.toml`（+ `nushell.nu` 供 Windows）+ **Zellij / Yazi 子配置**（`config/zellij`、
-`config/yazi`，Linux/macOS 由 install.sh 分发到 `~/.config`）+ 安装/打包脚本；下载上游、
-组装三平台安装包、自测、发布全部由这条流水线完成。
+全自动流水线（7 个 Job）。仓库里「手写的源码」其实只有 3 个配置文件
+（`wezterm.lua` / `config.fish` / `starship.toml`）+ `nushell.nu`（Windows 用）+
+安装/打包脚本；下载上游、组装三平台安装包、自测、发布全部由这条流水线完成。
 
 一句话：**每周自动把上游最新版 WezTerm / Fish / Nushell / Starship / Nerd Font / Zellij / Yazi
 与本仓库配置打包成 .deb / .dmg / .exe，发布到 GitHub Releases。**
@@ -92,9 +91,7 @@ Nerd Font 子集化：
   └─ skel/                配置模板
       ├─ wezterm.lua
       ├─ config.fish
-      ├─ starship.toml
-      ├─ config/zellij/   Zellij 配置 + 隐藏式导航 dock 布局（sidebar.kdl / config.kdl）
-      └─ config/yazi/     Yazi 文件管理器配置（含 no-status 插件）
+      └─ starship.toml
 ```
 
 4. `DEBIAN/conffiles` 声明上面 5 个路径（升级不覆盖用户改动）；
