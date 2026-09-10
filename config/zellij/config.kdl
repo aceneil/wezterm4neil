@@ -7,6 +7,8 @@ theme "default"
 default_shell "fish"
 // 打开 zellij 时默认启用复合侧边栏布局
 default_layout "sidebar"
+// 关闭终端时退出会话（而非 detach 留 server）——避免残留大量 zellij --server 进程
+on_force_close "quit"
 
 plugins {
     tab-bar location="zellij:tab-bar"
